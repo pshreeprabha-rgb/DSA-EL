@@ -1,0 +1,116 @@
+================================================================================
+BMTC SMART PUBLIC TRANSPORT SYSTEM: PART 3B-1 VERIFICATION AND RESULTS
+Date: 
+================================================================================
+
+--- SCENARIO 1: NETWORK TOPOLOGY & TRAVEL TIME MATRIX (60 stops, 4 routes) ---
+
+=== Bus Network Information ===
+Total Routes:     4
+Total Stops:      60 (requested 60)
+Dwell Time:       20.0 s
+Matrix Built:     YES
+
+Route    | Name                             | Stops  | Loop (min)   | Cycle (min)  | Terminals
+---------+----------------------------------+--------+--------------+--------------+----------------------------------
+R1       | R1: Monotype - Timber Yard Layou | 15     | 92.70        | 97.70        | Monotype -> Timber Yard Layout
+R2       | R2: Nagasandra Circle - Malleshw | 15     | 75.98        | 80.98        | Nagasandra Circle -> Malleshwaram 18th Cross
+R3       | R3: Jayanagara 4th T Block - Ric | 15     | 76.53        | 81.53        | Jayanagara 4th T Block -> Richmond Circle
+R4       | R4: Krupanidhi College - Horamav | 15     | 90.13        | 95.13        | Krupanidhi College -> Horamavu Junction
+
+Travel Time Matrix Statistics (60 stops, 3600 pairs):
+  Valid Directed Pairs: 3540 (100.0%)
+  Min Travel Time:      1.0 s (0.02 min)
+  Max Travel Time:      2131.8 s (35.53 min)
+  Mean Travel Time:     874.5 s (14.58 min)
+
+--- SCENARIO 2: FLEET ALLOCATION & MOVE PLANNING (Weekday, 09:00, Dry) ---
+
+=== Fleet Allocation Demonstration ===
+Scenario:         Hour 09:00, Weekday, Rain=NO (Total Buses: 40, Min/Route: 2)
+Demand Predictor: Random Forest
+
+Route    | Demand (p/h) | Cycle (min)  | Equal    | Prop     | Demand/Bus  | Marginal Wait
+---------+--------------+--------------+----------+----------+-------------+--------------
+R1       | 182.1        | 97.70        | 10       | 6        | 5           | 8            
+R2       | 364.6        | 80.98        | 10       | 10       | 11          | 10           
+R3       | 541.0        | 81.53        | 10       | 15       | 16          | 12           
+R4       | 295.1        | 95.13        | 10       | 9        | 8           | 10           
+---------+--------------+--------------+----------+----------+-------------+--------------
+Total    | 1382.9       | -            | 40       | 40       | 40          | 40           
+
+Waiting Time Proxy (Avg Passenger Wait):
+  Equal:           259.3 s ( 4.32 min)
+  Proportional:    259.9 s ( 4.33 min) [vs Equal:  +0.2%]
+  Demand/Bus:      271.4 s ( 4.52 min) [vs Equal:  +4.7%]
+  Marginal Wait:   253.0 s ( 4.22 min) [vs Equal:  -2.4%, vs Demand/Bus:  -6.8%]
+
+=== Dynamic Fleet Move Plan (Transition from Equal -> Marginal Wait) ===
+Planned Fleet Moves: 2
+Bus ID   | From Route | To Route   | Entry Stop           | Deadhead (s) | Deadhead (min)
+---------+------------+------------+----------------------+--------------+--------------
+Bus 1    | R1         | R3         | Jayanagara 4th T Blo | 390.1        | 6.50        
+Bus 4    | R1         | R3         | Richmond Circle      | 883.4        | 14.72       
+---------+------------+------------+------------+--------------+--------------
+Total Deadhead Travel Time: 1273.4 s (21.22 min)
+
+--- SCENARIO 3: FLEET ALLOCATION UNDER WEATHER SHIFT (Weekend, 09:00, Rain) ---
+
+=== Fleet Allocation Demonstration ===
+Scenario:         Hour 09:00, Weekend, Rain=YES (Total Buses: 40, Min/Route: 2)
+Demand Predictor: Random Forest
+
+Route    | Demand (p/h) | Cycle (min)  | Equal    | Prop     | Demand/Bus  | Marginal Wait
+---------+--------------+--------------+----------+----------+-------------+--------------
+R1       | 178.1        | 97.70        | 10       | 8        | 7           | 9            
+R2       | 341.4        | 80.98        | 10       | 13       | 14          | 12           
+R3       | 337.1        | 81.53        | 10       | 13       | 13          | 11           
+R4       | 144.9        | 95.13        | 10       | 6        | 6           | 8            
+---------+--------------+--------------+----------+----------+-------------+--------------
+Total    | 1001.4       | -            | 40       | 40       | 40          | 40           
+
+Waiting Time Proxy (Avg Passenger Wait):
+  Equal:           258.6 s ( 4.31 min)
+  Proportional:    261.0 s ( 4.35 min) [vs Equal:  +0.9%]
+  Demand/Bus:      265.7 s ( 4.43 min) [vs Equal:  +2.8%]
+  Marginal Wait:   253.4 s ( 4.22 min) [vs Equal:  -2.0%, vs Demand/Bus:  -4.7%]
+
+=== Dynamic Fleet Move Plan (Transition from Equal -> Marginal Wait) ===
+Planned Fleet Moves: 3
+Bus ID   | From Route | To Route   | Entry Stop           | Deadhead (s) | Deadhead (min)
+---------+------------+------------+----------------------+--------------+--------------
+Bus 1    | R1         | R2         | Nagasandra Circle    | 270.8        | 4.51        
+Bus 31   | R4         | R3         | Canara Bank          | 184.3        | 3.07        
+Bus 34   | R4         | R2         | Subbaiah Circle      | 759.2        | 12.65       
+---------+------------+------------+------------+--------------+--------------
+Total Deadhead Travel Time: 1214.3 s (20.24 min)
+
+--- SCENARIO 4: FLEET ALLOCATION DURING EARLY MORNING PEAK (Weekday, 08:00, Dry) ---
+
+=== Fleet Allocation Demonstration ===
+Scenario:         Hour 08:00, Weekday, Rain=NO (Total Buses: 40, Min/Route: 2)
+Demand Predictor: Random Forest
+
+Route    | Demand (p/h) | Cycle (min)  | Equal    | Prop     | Demand/Bus  | Marginal Wait
+---------+--------------+--------------+----------+----------+-------------+--------------
+R1       | 261.8        | 97.70        | 10       | 7        | 7           | 9            
+R2       | 417.7        | 80.98        | 10       | 11       | 11          | 10           
+R3       | 536.9        | 81.53        | 10       | 13       | 14          | 11           
+R4       | 329.1        | 95.13        | 10       | 9        | 8           | 10           
+---------+--------------+--------------+----------+----------+-------------+--------------
+Total    | 1545.6       | -            | 40       | 40       | 40          | 40           
+
+Waiting Time Proxy (Avg Passenger Wait):
+  Equal:           261.0 s ( 4.35 min)
+  Proportional:    263.5 s ( 4.39 min) [vs Equal:  +0.9%]
+  Demand/Bus:      267.3 s ( 4.45 min) [vs Equal:  +2.4%]
+  Marginal Wait:   258.8 s ( 4.31 min) [vs Equal:  -0.8%, vs Demand/Bus:  -3.2%]
+
+=== Dynamic Fleet Move Plan (Transition from Equal -> Marginal Wait) ===
+Planned Fleet Moves: 1
+Bus ID   | From Route | To Route   | Entry Stop           | Deadhead (s) | Deadhead (min)
+---------+------------+------------+----------------------+--------------+--------------
+Bus 1    | R1         | R3         | Jayanagara 4th T Blo | 390.1        | 6.50        
+---------+------------+------------+------------+--------------+--------------
+Total Deadhead Travel Time: 390.1 s (6.50 min)
+

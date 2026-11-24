@@ -1,0 +1,11 @@
+# Central Bangalore Traffic Corridors
+# Format: name<TAB>lat<TAB>lng<TAB>radius_m
+# Coordinates are approximate, verify on a map
+MG Road	12.9756	77.6066	250
+Kempegowda Road	12.9774	77.5708	250
+Shivajinagar	12.9856	77.6057	250
+Indiranagar 100ft	12.9719	77.6412	250
+Koramangala 80ft	12.9352	77.6245	250
+Richmond Road	12.9660	77.5975	250
+Dairy Circle Hosur Rd	12.9344	77.6060	250
+Cunningham Road	12.9912	77.5950	250

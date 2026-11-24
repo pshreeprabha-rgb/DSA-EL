@@ -1,0 +1,162 @@
+=================================================================
+        PART 3A END-TO-END DEMAND & ML PIPELINE RUN              
+=================================================================
+Timestamp: 2026-11-22 05:36:40 UTC
+Python:    Python 3.14.4
+Repo root: /home/shreyyyoo/transport_verify
+
+--- Step 1: Build CLI ---
+make: Entering directory '/home/shreyyyoo/transport_verify/backend'
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/common.c -o build/src/common.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/types.c -o build/src/types.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/linkedlist.c -o build/src/linkedlist.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/stack.c -o build/src/stack.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/queue.c -o build/src/queue.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/tree.c -o build/src/tree.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/heap.c -o build/src/heap.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/avl.c -o build/src/avl.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/hashtable.c -o build/src/hashtable.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/graph.c -o build/src/graph.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/pathfind.c -o build/src/pathfind.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/reroute.c -o build/src/reroute.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/traffic_sim.c -o build/src/traffic_sim.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/traffic_client.c -o build/src/traffic_client.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/osm_loader.c -o build/src/osm_loader.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/graph_scc.c -o build/src/graph_scc.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/demand_model.c -o build/src/demand_model.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/ai_inference.c -o build/src/ai_inference.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/ai_demand.c -o build/src/ai_demand.o
+ar rcs build/libtransport_core.a build/src/common.o build/src/types.o build/src/linkedlist.o build/src/stack.o build/src/queue.o build/src/tree.o build/src/heap.o build/src/avl.o build/src/hashtable.o build/src/graph.o build/src/pathfind.o build/src/reroute.o build/src/traffic_sim.o build/src/traffic_client.o build/src/osm_loader.o build/src/graph_scc.o build/src/demand_model.o build/src/ai_inference.o build/src/ai_demand.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tools/transport_cli.c build/libtransport_core.a -lm -lcurl -lcjson -o build/transport_cli
+make: Leaving directory '/home/shreyyyoo/transport_verify/backend'
+CLI built successfully: /home/shreyyyoo/transport_verify/backend/build/transport_cli
+
+--- Step 2: Stops and Graph SCC Info ---
+
+Anchors Breakdown:
+Centre: Majestic (Hub, radius 700 m, limit 3)
+  Anchor: centre "Majestic", stop "Railway Station, Majestic", distance 85.9 m
+  Anchor: centre "Majestic", stop "Kempegowda Bus Station", distance 300.0 m
+  Anchor: centre "Majestic", stop "Khodays Circle", distance 388.0 m
+Centre: Shivajinagar (Hub, radius 700 m, limit 3)
+  Anchor: centre "Shivajinagar", stop "Shivajinagar Bus Station", distance 326.1 m
+  Anchor: centre "Shivajinagar", stop "Naga Talkies", distance 674.0 m
+Centre: MG Road (Office, radius 1500 m, limit 2)
+  Anchor: centre "MG Road", stop "MG Road Parade Ground", distance 79.3 m
+  Anchor: centre "MG Road", stop "Manikshaw Parade Ground", distance 243.2 m
+Centre: Indiranagar (Office, radius 1500 m, limit 2)
+  Anchor: centre "Indiranagar", stop "Indiranagar Police Station", distance 12.5 m
+  Anchor: centre "Indiranagar", stop "Indiranagar Police Station", distance 14.4 m
+Centre: Koramangala (Office, radius 1500 m, limit 2)
+  Anchor: centre "Koramangala", stop "Canara Bank Koramangala", distance 99.7 m
+  Anchor: centre "Koramangala", stop "Canara Bank", distance 102.0 m
+
+=== Bangalore Graph & Bus Stops Summary ===
+Graph nodes:            4765
+Graph edges:            8156
+Strongly Connected Components (SCCs): 191
+Largest SCC size:       4546 nodes (95.40% of graph)
+Total stops in graph:   723
+Stops in largest SCC:   685 (94.74% of stops)
+Selected stops:         60 (limit: 60)
+
+Selected Stops Breakdown by Category:
+  Hub (Majestic/Shivajinagar): 5 (8.3%)
+  Office (CBD/Tech corridors): 15 (25.0%)
+  Market (Commercial zones):   9 (15.0%)
+  Residential (Neighborhoods): 31 (51.7%)
+Scale range:            min 0.6094, max 1.7969, mean 1.1578
+
+--- Step 3: Generate Demand Dataset ---
+Generated 172800 demand rows (120 days, 60 stops) -> data/demand_history.csv
+Category Breakdown:
+  weekday         :   93540 rows, mean  10.41 passengers/hr
+  weekend         :   40320 rows, mean   7.77 passengers/hr
+  holiday         :    5760 rows, mean   6.61 passengers/hr
+  rain            :   33108 rows, mean  11.46 passengers/hr
+  event           :      72 rows, mean  34.51 passengers/hr
+Overall mean passengers: 9.88 passengers/hr
+Validation passed: 172800 rows, max day 119 (0..119), 60 distinct stops.
+
+--- Step 4: Train Random Forest Model ---
+[Stage: Split] Loading history from data/demand_history.csv...
+[Stage: Split] Day split: 84 train days, 36 test days.
+[Stage: Split] Wrote 120960 train rows to data/demand_train.csv
+[Stage: Split] Wrote 51840 test rows to data/demand_test.csv
+[Stage: Read CSV] Reading train dataset: data/demand_train.csv
+[Stage: Read CSV] Reading test dataset: data/demand_test.csv
+[Stage: Features] Extracting features...
+[Stage: Fit] Training RandomForestRegressor(n_estimators=30, max_depth=9, min_samples_leaf=30, random_state=42, n_jobs=1)...
+[Stage: Fit] Training complete.
+[Stage: Export] Exported forest to data/demand_rf.txt (0.56 MB)
+[Stage: Self-Check] Starting self-check on exported data/demand_rf.txt...
+[Stage: Self-Check] Completed on 5000 test rows. Max diff: 0.000e+00
+[Stage: Metrics] Test MAE (noisy): 2.4617
+[Stage: Metrics] Test RMSE (noisy): 4.0777
+[Stage: Metrics] Test WAPE (noisy): 24.90%
+[Stage: Metrics] Test MAE (lambda): 1.2408
+[Stage: Golden File] Generating 300 golden predictions...
+[Stage: Golden File] Wrote 300 golden rows to data/golden_predictions.csv
+[Stage: Metrics] Wrote metrics JSON to data/ml_metrics.json
+
+--- Step 5: Evaluate Predictors ---
+
+=== Demand Predictor Evaluation (Test Set: 51840 rows) ===
+Model              |      MAE     RMSE     WAPE MAE(lambda) |    Wkday    Wkend      Hol     Rain    Event
+-------------------+---------------------------------------------+---------------------------------------------
+row_counts         |        -        -        -           - |    28776    11520     1440    10080       24
+-------------------+---------------------------------------------+---------------------------------------------
+moving_average     |    2.160    3.482   21.84%       0.712 |    2.168    1.809    1.838    2.562   10.708
+ols_per_band       |    4.471    7.722   45.23%       3.929 |    4.504    3.943    3.622    5.073   16.764
+random_forest      |    2.462    4.078   24.90%       1.241 |    2.445    1.979    4.358    2.770   11.043
+-------------------+---------------------------------------------+---------------------------------------------
+
+Forest MAE (noisy): 2.461683
+
+--- Step 6: Golden Predictions Verification ---
+=== Golden Predictions Check ===
+rows checked: 300
+max diff:     0.000000e+00
+golden MAE:   0.000000
+tolerance:    1.000000e-06
+status:       PASS
+
+--- Step 7: Experiment 2 (Exclude Event Days from Train) ---
+[Stage: Split] Loading history from data/demand_history.csv...
+[Stage: Split] Day split: 80 train days, 40 test days.
+[Stage: Split] Wrote 115200 train rows to data/exp_noevent/demand_train.csv
+[Stage: Split] Wrote 57600 test rows to data/exp_noevent/demand_test.csv
+[Stage: Read CSV] Reading train dataset: data/exp_noevent/demand_train.csv
+[Stage: Read CSV] Reading test dataset: data/exp_noevent/demand_test.csv
+[Stage: Features] Extracting features...
+[Stage: Fit] Training RandomForestRegressor(n_estimators=30, max_depth=9, min_samples_leaf=30, random_state=42, n_jobs=1)...
+[Stage: Fit] Training complete.
+[Stage: Export] Exported forest to data/exp_noevent/demand_rf.txt (0.56 MB)
+[Stage: Self-Check] Starting self-check on exported data/exp_noevent/demand_rf.txt...
+[Stage: Self-Check] Completed on 5000 test rows. Max diff: 0.000e+00
+[Stage: Metrics] Test MAE (noisy): 2.5032
+[Stage: Metrics] Test RMSE (noisy): 4.3399
+[Stage: Metrics] Test WAPE (noisy): 25.00%
+[Stage: Metrics] Test MAE (lambda): 1.2708
+[Stage: Golden File] Generating 300 golden predictions...
+[Stage: Golden File] Wrote 300 golden rows to data/exp_noevent/golden_predictions.csv
+[Stage: Metrics] Wrote metrics JSON to data/exp_noevent/ml_metrics.json
+
+--- Experiment 2: Evaluate Predictors on Unseen Events ---
+
+=== Demand Predictor Evaluation (Test Set: 57600 rows) ===
+Model              |      MAE     RMSE     WAPE MAE(lambda) |    Wkday    Wkend      Hol     Rain    Event
+-------------------+---------------------------------------------+---------------------------------------------
+row_counts         |        -        -        -           - |    33060    11520     1440    11508       72
+-------------------+---------------------------------------------+---------------------------------------------
+moving_average     |    2.197    3.765   21.93%       0.736 |    2.164    1.809    1.838    2.604   21.009
+ols_per_band       |    4.513    7.934   45.06%       3.959 |    4.510    3.921    3.595    5.106   23.770
+random_forest      |    2.503    4.340   25.00%       1.271 |    2.447    1.987    4.262    2.842   21.595
+-------------------+---------------------------------------------+---------------------------------------------
+
+Forest MAE (noisy): 2.503194
+
+=================================================================
+Pipeline execution finished successfully.
+Results saved to: /home/shreyyyoo/transport_verify/docs/part3a_results.txt
+=================================================================

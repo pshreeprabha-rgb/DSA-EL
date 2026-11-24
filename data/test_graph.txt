@@ -1,0 +1,59 @@
+TRANSPORT_GRAPH v1
+N 20
+1	12.9774	77.5708	1	Majestic
+2	12.9856	77.6057	1	Shivajinagar
+3	12.9756	77.6066	1	MG Road
+4	12.9716	77.6412	1	Indiranagar
+5	12.9352	77.6245	1	Koramangala
+6	12.9660	77.5975	1	Richmond Circle
+7	12.9763	77.5929	1	Cubbon Park
+8	12.9507	77.5848	1	Lalbagh
+9	12.9797	77.5907	1	Vidhana Soudha
+10	12.9723	77.6186	1	Trinity
+11	12.9610	77.6387	1	Domlur
+12	12.9818	77.6254	1	Ulsoor
+13	12.9299	77.5824	1	Jayanagar
+14	13.0031	77.5643	1	Malleshwaram
+15	12.9912	77.5709	1	Seshadripuram
+16	12.9654	77.5786	1	KR Market
+17	12.9601	77.6080	1	Shanti Nagar
+18	12.9344	77.6060	1	Dairy Circle
+19	12.9904	77.5950	1	Cunningham Road
+20	12.9830	77.5800	1	Race Course Road
+E 35
+0	14	1500	150	0	Seshadri Rd
+14	13	1600	160	0	Malleshwaram Main Rd
+0	19	1000	100	0	Race Course Rd
+19	18	1200	120	0	Cunningham Rd
+18	8	1100	110	0	Queen Rd
+8	6	800	80	0	Ambedkar Veedhi
+6	1	1200	120	0	Central St
+0	6	1400	140	0	K G Road
+0	15	1300	130	0	OTC Rd
+15	7	1800	180	0	Kalasipalya Rd
+7	12	2200	220	0	RV Road
+1	2	1000	100	0	Cubbon Rd
+6	2	900	90	0	Kasturba Rd
+6	5	1300	130	0	Nrupathunga Rd
+15	5	1500	150	0	Mission Rd
+5	2	1000	100	0	Residency Rd
+2	9	1200	120	0	MG Road
+9	3	2500	250	0	Old Airport Rd
+3	10	1500	150	0	100 Ft Rd
+10	4	3000	300	0	Inner Ring Rd
+9	11	1100	110	0	Ulsoor Rd
+1	11	1800	180	0	Kensington Rd
+11	3	2000	200	0	CMH Rd
+5	16	1100	110	0	Kengal Hanumanthaiah Rd
+16	17	2600	260	0	Hosur Rd
+17	4	2200	220	0	Bannerghatta Rd
+17	12	2500	250	0	South End Rd
+12	4	3500	350	0	9th Main Rd
+7	17	2400	240	0	Hosur Main Rd
+8	1	1000	100	0	Infantry Rd
+18	1	800	80	0	Millers Rd
+19	8	900	90	0	Palace Rd
+0	8	1600	160	0	Sheshadri Rd
+14	18	2400	240	0	Sankey Rd
+10	9	2700	270	0	Intermediate Ring Rd
+

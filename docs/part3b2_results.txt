@@ -1,0 +1,188 @@
+================================================================================
+  PART 3B-2 VERIFICATION RESULTS: DISCRETE-EVENT SIMULATION & FLEET OPTIMIZATION
+================================================================================
+
+=== 1. SIM-RUN: FIXED-EQUAL (TIME SPACING, WARMUP 30M, SEED 42) ===
+$ ./build/transport_cli sim-run --routes 6 --buses 36 --seed 42 --policy fixed-equal --spacing time
+[predictor] oracle: loaded (built-in)
+[predictor] ma: loaded (../data/demand_train.csv)
+[predictor] ols: loaded (../data/demand_train.csv)
+[predictor] rf: loaded (../data/demand_rf.txt)
+
+=== SIMULATION CONFIGURATION ===
+Stops:               60
+Routes:              6
+Buses:               36 (Reserve: 0)
+Capacity:            60 pax
+Seed:                42
+Day:                 1 (Weekday)
+Time Window:         06:00 -> 22:00 (Warmup: 30.0 min, Slice: 15.0 min)
+Travel Noise:        0.10
+Policy:              fixed-equal
+Predictor:           ma
+Realloc Interval:    30.0 min (Hysteresis: 0.02)
+Spacing:             by-time
+Anomaly Mode:        none
+Scenarios Scheduled: 0
+
+=== PER-ROUTE RESULTS ===
+Route    | Tour len   | Cycle(s)   | Buses        | Boarded  | Still waiting | Mean wait(s) | Max wait(s)
+---------+------------+------------+--------------+----------+---------------+--------------+------------
+R1       | 10         | 4632.8     | 6            | 1426     | 5             | 716.40       | 3362.54    
+R2       | 10         | 3510.9     | 6            | 3137     | 5             | 684.82       | 3267.95    
+R3       | 10         | 3272.9     | 6            | 1648     | 11            | 548.90       | 2910.81    
+R4       | 10         | 3448.8     | 6            | 3734     | 9             | 910.14       | 5830.11    
+R5       | 10         | 3474.3     | 6            | 2102     | 0             | 736.59       | 3497.09    
+R6       | 10         | 4802.8     | 6            | 1297     | 2             | 766.34       | 2621.73    
+
+=== GLOBAL SUMMARY ===
+Total arrivals:             13376
+Boarded passengers:         13344
+Still waiting:              32
+Mean waiting time (boarded): 750.54 s
+Mean waiting time (all):    749.60 s
+P50 waiting time:           570.00 s
+P95 waiting time:           2130.00 s
+Max waiting time:           5830.11 s
+Full bus events:            68
+Forced dumps:               0
+Stranded by breakdown:      0
+Bus arrivals:               3931
+Moves applied:              0
+Total deadhead time:        0.0 s
+Decisions evaluated:        0
+Decisions applied:          0
+Anomaly flags:              0
+Emergency dispatches:       0
+Mean load factor:           0.2580
+
+=== 2. SIM-RUN: GREEDY-MARGINAL (MA PREDICTOR, TIME SPACING, WARMUP 30M, SEED 42) ===
+$ ./build/transport_cli sim-run --routes 6 --buses 36 --seed 42 --policy greedy-marginal --predictor ma --spacing time
+[predictor] oracle: loaded (built-in)
+[predictor] ma: loaded (../data/demand_train.csv)
+[predictor] ols: loaded (../data/demand_train.csv)
+[predictor] rf: loaded (../data/demand_rf.txt)
+
+=== SIMULATION CONFIGURATION ===
+Stops:               60
+Routes:              6
+Buses:               36 (Reserve: 0)
+Capacity:            60 pax
+Seed:                42
+Day:                 1 (Weekday)
+Time Window:         06:00 -> 22:00 (Warmup: 30.0 min, Slice: 15.0 min)
+Travel Noise:        0.10
+Policy:              greedy-marginal
+Predictor:           ma
+Realloc Interval:    30.0 min (Hysteresis: 0.02)
+Spacing:             by-time
+Anomaly Mode:        none
+Scenarios Scheduled: 0
+
+=== PER-ROUTE RESULTS ===
+Route    | Tour len   | Cycle(s)   | Buses        | Boarded  | Still waiting | Mean wait(s) | Max wait(s)
+---------+------------+------------+--------------+----------+---------------+--------------+------------
+R1       | 10         | 4632.8     | 6            | 1426     | 5             | 1116.96      | 4600.94    
+R2       | 10         | 3510.9     | 7            | 3133     | 9             | 756.76       | 3524.25    
+R3       | 10         | 3272.9     | 6            | 1652     | 7             | 670.16       | 2379.48    
+R4       | 10         | 3448.8     | 7            | 3739     | 4             | 801.16       | 4002.02    
+R5       | 10         | 3474.3     | 5            | 2099     | 3             | 832.22       | 3863.18    
+R6       | 10         | 4802.8     | 5            | 1296     | 3             | 897.73       | 3136.37    
+
+=== GLOBAL SUMMARY ===
+Total arrivals:             13376
+Boarded passengers:         13345
+Still waiting:              31
+Mean waiting time (boarded): 822.53 s
+Mean waiting time (all):    821.42 s
+P50 waiting time:           660.00 s
+P95 waiting time:           2340.00 s
+Max waiting time:           4600.94 s
+Full bus events:            78
+Forced dumps:               45
+Stranded by breakdown:      0
+Bus arrivals:               3930
+Moves applied:              7
+Total deadhead time:        6070.8 s
+Decisions evaluated:        31
+Decisions applied:          2
+Anomaly flags:              0
+Emergency dispatches:       0
+Mean load factor:           0.2572
+
+=== 3. SIM-COMPARE: BASELINE (NO SCENARIO, TIME SPACING, WARMUP 30M, SEED 42) ===
+$ ./build/transport_cli sim-compare --routes 6 --buses 36 --seed 42 --spacing time
+[predictor] oracle: loaded (built-in)
+[predictor] ma: loaded (../data/demand_train.csv)
+[predictor] ols: loaded (../data/demand_train.csv)
+[predictor] rf: loaded (../data/demand_rf.txt)
+
+=== POLICY COMPARISON SUMMARY ===
+Spacing:                  by-time
+Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches | Impv vs Equal
+-------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+------------+--------------
+fixed_equal              | 13344    | 32            | 750.54        | 2130.00      | 5830.11      | 68       | 0            | 0     | 0     | 0          | base
+fixed_proportional       | 13341    | 35            | 754.38        | 2130.00      | 5131.75      | 72       | 0            | 0     | 0     | 0          | -0.5%
+greedy_spec_ma           | 13335    | 41            | 817.70        | 2370.00      | 5461.71      | 79       | 10           | 4     | 0     | 0          | -8.9%
+greedy_marginal_ma       | 13345    | 31            | 822.53        | 2340.00      | 4600.94      | 78       | 45           | 7     | 0     | 0          | -9.6%
+greedy_marginal_rf       | 13350    | 26            | 731.68        | 2010.00      | 3857.17      | 60       | 32           | 6     | 0     | 0          | +2.5%
+greedy_marginal_oracle   | 13345    | 31            | 822.53        | 2340.00      | 4600.94      | 78       | 45           | 7     | 0     | 0          | -9.6%
+
+
+=== 4. SIM-COMPARE: RAIN + EVENT + RESERVE + DISPATCH (TIME SPACING, WARMUP 30M, SEED 42) ===
+$ ./build/transport_cli sim-compare --routes 6 --buses 36 --seed 42 --spacing time --rain-at 08:00 --event-at 17:00 --event-stop 3 --event-len 120 --reserve 3 --anomaly dispatch
+[predictor] oracle: loaded (built-in)
+[predictor] ma: loaded (../data/demand_train.csv)
+[predictor] ols: loaded (../data/demand_train.csv)
+[predictor] rf: loaded (../data/demand_rf.txt)
+
+=== POLICY COMPARISON SUMMARY ===
+Spacing:                  by-time
+Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches | Impv vs Equal
+-------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+------------+--------------
+fixed_equal              | 13675    | 42            | 986.28        | 3480.00      | 8078.87      | 103      | 0            | 3     | 13    | 3          | base
+fixed_proportional       | 13674    | 43            | 940.92        | 3090.00      | 6423.55      | 106      | 0            | 3     | 12    | 3          | +4.6%
+greedy_spec_ma           | 13653    | 64            | 945.28        | 2700.00      | 5942.50      | 106      | 42           | 8     | 12    | 3          | +4.2%
+greedy_marginal_ma       | 13674    | 43            | 937.25        | 2850.00      | 5392.13      | 101      | 52           | 10    | 12    | 3          | +5.0%
+greedy_marginal_rf       | 13671    | 46            | 855.60        | 2340.00      | 6704.45      | 83       | 25           | 9     | 23    | 3          | +13.2%
+greedy_marginal_oracle   | 13677    | 40            | 956.07        | 2910.00      | 6704.45      | 101      | 39           | 8     | 13    | 3          | +3.1%
+
+
+=== 5. SIM-COMPARE: BREAKDOWN BUS 0 (TIME SPACING, WARMUP 30M, SEED 42) ===
+$ ./build/transport_cli sim-compare --routes 6 --buses 36 --seed 42 --spacing time --breakdown-at 09:00 --bus 0
+[predictor] oracle: loaded (built-in)
+[predictor] ma: loaded (../data/demand_train.csv)
+[predictor] ols: loaded (../data/demand_train.csv)
+[predictor] rf: loaded (../data/demand_rf.txt)
+
+=== POLICY COMPARISON SUMMARY ===
+Spacing:                  by-time
+Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches | Impv vs Equal
+-------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+------------+--------------
+fixed_equal              | 13342    | 34            | 774.21        | 2250.00      | 5830.11      | 68       | 0            | 0     | 0     | 0          | base
+fixed_proportional       | 13339    | 37            | 778.06        | 2280.00      | 5131.75      | 72       | 0            | 0     | 0     | 0          | -0.5%
+greedy_spec_ma           | 13324    | 52            | 934.47        | 3030.00      | 7479.11      | 89       | 41           | 8     | 0     | 0          | -20.7%
+greedy_marginal_ma       | 13345    | 31            | 892.34        | 2700.00      | 5502.58      | 87       | 61           | 8     | 0     | 0          | -15.3%
+greedy_marginal_rf       | 13333    | 43            | 804.50        | 2250.00      | 4188.32      | 73       | 27           | 3     | 0     | 0          | -3.9%
+greedy_marginal_oracle   | 13331    | 45            | 901.76        | 2760.00      | 5502.58      | 87       | 60           | 6     | 0     | 0          | -16.5%
+
+
+=== 6. SIM-COMPARE: LEGACY STOP SPACING (NO SCENARIO, WARMUP 30M, SEED 42) ===
+$ ./build/transport_cli sim-compare --routes 6 --buses 36 --seed 42 --spacing stop
+[predictor] oracle: loaded (built-in)
+[predictor] ma: loaded (../data/demand_train.csv)
+[predictor] ols: loaded (../data/demand_train.csv)
+[predictor] rf: loaded (../data/demand_rf.txt)
+
+=== POLICY COMPARISON SUMMARY ===
+Spacing:                  by-stop
+Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches | Impv vs Equal
+-------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+------------+--------------
+fixed_equal              | 13335    | 41            | 1136.50       | 3390.00      | 6642.74      | 136      | 0            | 0     | 0     | 0          | base
+fixed_proportional       | 13308    | 68            | 1186.34       | 3660.00      | 8178.70      | 136      | 0            | 0     | 0     | 0          | -4.4%
+greedy_spec_ma           | 13286    | 90            | 1207.18       | 3720.00      | 6757.52      | 136      | 3            | 3     | 0     | 0          | -6.2%
+greedy_marginal_ma       | 13305    | 71            | 1200.11       | 3780.00      | 5872.13      | 134      | 13           | 7     | 0     | 0          | -5.6%
+greedy_marginal_rf       | 13314    | 62            | 1119.12       | 3450.00      | 5989.94      | 129      | 7            | 6     | 0     | 0          | +1.5%
+greedy_marginal_oracle   | 13305    | 71            | 1200.11       | 3780.00      | 5872.13      | 134      | 13           | 7     | 0     | 0          | -5.6%
+
+

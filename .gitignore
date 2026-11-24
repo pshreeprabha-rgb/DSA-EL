@@ -1,5 +1,34 @@
-﻿build/
+# Build and test artifacts
+build/
+build_asan/
 *.o
 *.a
 *.exe
 *.log
+
+# Sensitive environment and key files
+.env
+*.key
+
+# Large/generated OSM data
+data/osm_roads.json
+data/osm_stops.json
+
+# Large demand CSV datasets (generated during pipeline)
+data/demand_history.csv
+data/demand_train.csv
+data/demand_test.csv
+data/exp_noevent/
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+*.pyo
+
+# Tracked ML fixtures and artifacts (do NOT ignore)
+!data/demand_rf.txt
+!data/golden_predictions.csv
+!data/ml_metrics.json
+!docs/part3a_results.txt
+!backend/tests/fixtures/

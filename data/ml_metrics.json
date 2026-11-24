@@ -1,0 +1,14 @@
+{
+  "train_rows": 120960,
+  "test_rows": 51840,
+  "train_days": 84,
+  "test_days": 36,
+  "trees": 30,
+  "depth": 9,
+  "leaf": 30,
+  "rf_mae": 2.4616830249977224,
+  "rf_mae_noisy": 2.4616830249977224,
+  "rf_rmse": 4.07774742819664,
+  "rf_wape": 0.24898086411289944,
+  "rf_mae_lambda": 1.2407586683139291
+}
