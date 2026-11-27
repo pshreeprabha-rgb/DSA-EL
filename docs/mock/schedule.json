@@ -1,0 +1,481 @@
+{
+    "from": 360,
+    "to": 480,
+    "count": 67,
+    "avl": {
+        "size": 506,
+        "height": 10,
+        "balanced": true
+    },
+    "trips": [
+        {
+            "trip_id": 1,
+            "route_id": 0,
+            "bus_id": 0,
+            "departure_min": 360,
+            "departure": "06:00"
+        },
+        {
+            "trip_id": 76,
+            "route_id": 1,
+            "bus_id": 6,
+            "departure_min": 360,
+            "departure": "06:00"
+        },
+        {
+            "trip_id": 174,
+            "route_id": 2,
+            "bus_id": 12,
+            "departure_min": 360,
+            "departure": "06:00"
+        },
+        {
+            "trip_id": 279,
+            "route_id": 3,
+            "bus_id": 18,
+            "departure_min": 360,
+            "departure": "06:00"
+        },
+        {
+            "trip_id": 364,
+            "route_id": 4,
+            "bus_id": 23,
+            "departure_min": 360,
+            "departure": "06:00"
+        },
+        {
+            "trip_id": 447,
+            "route_id": 5,
+            "bus_id": 28,
+            "departure_min": 360,
+            "departure": "06:00"
+        },
+        {
+            "trip_id": 192,
+            "route_id": 2,
+            "bus_id": 13,
+            "departure_min": 369,
+            "departure": "06:09"
+        },
+        {
+            "trip_id": 93,
+            "route_id": 1,
+            "bus_id": 7,
+            "departure_min": 370,
+            "departure": "06:10"
+        },
+        {
+            "trip_id": 296,
+            "route_id": 3,
+            "bus_id": 19,
+            "departure_min": 371,
+            "departure": "06:11"
+        },
+        {
+            "trip_id": 381,
+            "route_id": 4,
+            "bus_id": 24,
+            "departure_min": 372,
+            "departure": "06:12"
+        },
+        {
+            "trip_id": 14,
+            "route_id": 0,
+            "bus_id": 1,
+            "departure_min": 373,
+            "departure": "06:13"
+        },
+        {
+            "trip_id": 459,
+            "route_id": 5,
+            "bus_id": 29,
+            "departure_min": 376,
+            "departure": "06:16"
+        },
+        {
+            "trip_id": 210,
+            "route_id": 2,
+            "bus_id": 14,
+            "departure_min": 378,
+            "departure": "06:18"
+        },
+        {
+            "trip_id": 110,
+            "route_id": 1,
+            "bus_id": 8,
+            "departure_min": 380,
+            "departure": "06:20"
+        },
+        {
+            "trip_id": 313,
+            "route_id": 3,
+            "bus_id": 20,
+            "departure_min": 383,
+            "departure": "06:23"
+        },
+        {
+            "trip_id": 398,
+            "route_id": 4,
+            "bus_id": 25,
+            "departure_min": 383,
+            "departure": "06:23"
+        },
+        {
+            "trip_id": 27,
+            "route_id": 0,
+            "bus_id": 2,
+            "departure_min": 386,
+            "departure": "06:26"
+        },
+        {
+            "trip_id": 228,
+            "route_id": 2,
+            "bus_id": 15,
+            "departure_min": 388,
+            "departure": "06:28"
+        },
+        {
+            "trip_id": 126,
+            "route_id": 1,
+            "bus_id": 9,
+            "departure_min": 390,
+            "departure": "06:30"
+        },
+        {
+            "trip_id": 471,
+            "route_id": 5,
+            "bus_id": 30,
+            "departure_min": 392,
+            "departure": "06:32"
+        },
+        {
+            "trip_id": 330,
+            "route_id": 3,
+            "bus_id": 21,
+            "departure_min": 394,
+            "departure": "06:34"
+        },
+        {
+            "trip_id": 415,
+            "route_id": 4,
+            "bus_id": 26,
+            "departure_min": 395,
+            "departure": "06:35"
+        },
+        {
+            "trip_id": 245,
+            "route_id": 2,
+            "bus_id": 16,
+            "departure_min": 397,
+            "departure": "06:37"
+        },
+        {
+            "trip_id": 40,
+            "route_id": 0,
+            "bus_id": 3,
+            "departure_min": 399,
+            "departure": "06:39"
+        },
+        {
+            "trip_id": 142,
+            "route_id": 1,
+            "bus_id": 10,
+            "departure_min": 399,
+            "departure": "06:39"
+        },
+        {
+            "trip_id": 262,
+            "route_id": 2,
+            "bus_id": 17,
+            "departure_min": 406,
+            "departure": "06:46"
+        },
+        {
+            "trip_id": 347,
+            "route_id": 3,
+            "bus_id": 22,
+            "departure_min": 406,
+            "departure": "06:46"
+        },
+        {
+            "trip_id": 431,
+            "route_id": 4,
+            "bus_id": 27,
+            "departure_min": 406,
+            "departure": "06:46"
+        },
+        {
+            "trip_id": 483,
+            "route_id": 5,
+            "bus_id": 31,
+            "departure_min": 408,
+            "departure": "06:48"
+        },
+        {
+            "trip_id": 158,
+            "route_id": 1,
+            "bus_id": 11,
+            "departure_min": 409,
+            "departure": "06:49"
+        },
+        {
+            "trip_id": 52,
+            "route_id": 0,
+            "bus_id": 4,
+            "departure_min": 411,
+            "departure": "06:51"
+        },
+        {
+            "trip_id": 175,
+            "route_id": 2,
+            "bus_id": 12,
+            "departure_min": 415,
+            "departure": "06:55"
+        },
+        {
+            "trip_id": 280,
+            "route_id": 3,
+            "bus_id": 18,
+            "departure_min": 417,
+            "departure": "06:57"
+        },
+        {
+            "trip_id": 365,
+            "route_id": 4,
+            "bus_id": 23,
+            "departure_min": 418,
+            "departure": "06:58"
+        },
+        {
+            "trip_id": 77,
+            "route_id": 1,
+            "bus_id": 6,
+            "departure_min": 419,
+            "departure": "06:59"
+        },
+        {
+            "trip_id": 64,
+            "route_id": 0,
+            "bus_id": 5,
+            "departure_min": 424,
+            "departure": "07:04"
+        },
+        {
+            "trip_id": 193,
+            "route_id": 2,
+            "bus_id": 13,
+            "departure_min": 424,
+            "departure": "07:04"
+        },
+        {
+            "trip_id": 495,
+            "route_id": 5,
+            "bus_id": 32,
+            "departure_min": 424,
+            "departure": "07:04"
+        },
+        {
+            "trip_id": 297,
+            "route_id": 3,
+            "bus_id": 19,
+            "departure_min": 428,
+            "departure": "07:08"
+        },
+        {
+            "trip_id": 94,
+            "route_id": 1,
+            "bus_id": 7,
+            "departure_min": 429,
+            "departure": "07:09"
+        },
+        {
+            "trip_id": 382,
+            "route_id": 4,
+            "bus_id": 24,
+            "departure_min": 430,
+            "departure": "07:10"
+        },
+        {
+            "trip_id": 211,
+            "route_id": 2,
+            "bus_id": 14,
+            "departure_min": 433,
+            "departure": "07:13"
+        },
+        {
+            "trip_id": 2,
+            "route_id": 0,
+            "bus_id": 0,
+            "departure_min": 437,
+            "departure": "07:17"
+        },
+        {
+            "trip_id": 111,
+            "route_id": 1,
+            "bus_id": 8,
+            "departure_min": 439,
+            "departure": "07:19"
+        },
+        {
+            "trip_id": 314,
+            "route_id": 3,
+            "bus_id": 20,
+            "departure_min": 440,
+            "departure": "07:20"
+        },
+        {
+            "trip_id": 448,
+            "route_id": 5,
+            "bus_id": 28,
+            "departure_min": 440,
+            "departure": "07:20"
+        },
+        {
+            "trip_id": 399,
+            "route_id": 4,
+            "bus_id": 25,
+            "departure_min": 441,
+            "departure": "07:21"
+        },
+        {
+            "trip_id": 229,
+            "route_id": 2,
+            "bus_id": 15,
+            "departure_min": 443,
+            "departure": "07:23"
+        },
+        {
+            "trip_id": 127,
+            "route_id": 1,
+            "bus_id": 9,
+            "departure_min": 449,
+            "departure": "07:29"
+        },
+        {
+            "trip_id": 15,
+            "route_id": 0,
+            "bus_id": 1,
+            "departure_min": 450,
+            "departure": "07:30"
+        },
+        {
+            "trip_id": 331,
+            "route_id": 3,
+            "bus_id": 21,
+            "departure_min": 451,
+            "departure": "07:31"
+        },
+        {
+            "trip_id": 246,
+            "route_id": 2,
+            "bus_id": 16,
+            "departure_min": 452,
+            "departure": "07:32"
+        },
+        {
+            "trip_id": 416,
+            "route_id": 4,
+            "bus_id": 26,
+            "departure_min": 453,
+            "departure": "07:33"
+        },
+        {
+            "trip_id": 460,
+            "route_id": 5,
+            "bus_id": 29,
+            "departure_min": 456,
+            "departure": "07:36"
+        },
+        {
+            "trip_id": 143,
+            "route_id": 1,
+            "bus_id": 10,
+            "departure_min": 458,
+            "departure": "07:38"
+        },
+        {
+            "trip_id": 263,
+            "route_id": 2,
+            "bus_id": 17,
+            "departure_min": 461,
+            "departure": "07:41"
+        },
+        {
+            "trip_id": 28,
+            "route_id": 0,
+            "bus_id": 2,
+            "departure_min": 463,
+            "departure": "07:43"
+        },
+        {
+            "trip_id": 348,
+            "route_id": 3,
+            "bus_id": 22,
+            "departure_min": 463,
+            "departure": "07:43"
+        },
+        {
+            "trip_id": 432,
+            "route_id": 4,
+            "bus_id": 27,
+            "departure_min": 464,
+            "departure": "07:44"
+        },
+        {
+            "trip_id": 159,
+            "route_id": 1,
+            "bus_id": 11,
+            "departure_min": 468,
+            "departure": "07:48"
+        },
+        {
+            "trip_id": 176,
+            "route_id": 2,
+            "bus_id": 12,
+            "departure_min": 470,
+            "departure": "07:50"
+        },
+        {
+            "trip_id": 472,
+            "route_id": 5,
+            "bus_id": 30,
+            "departure_min": 472,
+            "departure": "07:52"
+        },
+        {
+            "trip_id": 281,
+            "route_id": 3,
+            "bus_id": 18,
+            "departure_min": 474,
+            "departure": "07:54"
+        },
+        {
+            "trip_id": 41,
+            "route_id": 0,
+            "bus_id": 3,
+            "departure_min": 476,
+            "departure": "07:56"
+        },
+        {
+            "trip_id": 366,
+            "route_id": 4,
+            "bus_id": 23,
+            "departure_min": 476,
+            "departure": "07:56"
+        },
+        {
+            "trip_id": 78,
+            "route_id": 1,
+            "bus_id": 6,
+            "departure_min": 478,
+            "departure": "07:58"
+        },
+        {
+            "trip_id": 194,
+            "route_id": 2,
+            "bus_id": 13,
+            "departure_min": 479,
+            "departure": "07:59"
+        }
+    ]
+}

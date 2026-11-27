@@ -1,0 +1,19 @@
+{
+    "stops": 60,
+    "routes": 6,
+    "buses": 36,
+    "reserve": 3,
+    "seed": 42,
+    "start_min": 360,
+    "end_min": 1320,
+    "slice_min": 15,
+    "policy": "fixed_equal",
+    "predictor": "ma",
+    "spacing": "time",
+    "reassign": "drain",
+    "models": {
+        "ma": true,
+        "rf": true
+    },
+    "offline": true
+}

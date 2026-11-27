@@ -565,4 +565,15 @@ The simulation engine is single-threaded and strictly deterministic. Given the s
 - **Route Priority Board (`Heap`)**: Ranks routes by `demand / (buses + 1)` descending (ties broken by smaller `route_id`).
 - **CLI & Tests**: `transport_cli registry-info` output saved in [part3d_results.txt](file:///home/prabhashetty/transport/docs/part3d_results.txt); unit/integration suite in `tests/test_registry.c` (25 test suites total).
 
+---
+
+### 15. Part 4A: REST Server Core (`api_platform`, `api_app`, `api_json`, `api_http`)
+- **Platform Layer (`api_platform.h`, `api_platform.c`)**: Isolates POSIX mutexes, threads, monotonic clock, `nanosleep`, and `SIGINT`/`SIGTERM` handlers into a single compilation unit.
+- **Application Context & Sim Thread (`api_app.h`, `api_app.c`)**: Owns `Graph`, `DemandStop`s, `NetworkModel` (with matrix), optional Moving Average (`demand_train.csv`) and Random Forest (`demand_rf.txt`) predictors, `Sim`, `Registry` (depots at `"Majestic (Kempegowda BS)"` and `"Shivajinagar"`), simulation lock, generation/geometry counters, and 50 ms background simulation advance loop calling `registry_sync`.
+- **JSON Builders & HTTP Glue (`api_json.h`, `api_json.c`, `api_http.h`, `api_http.c`)**: Strict numeric parsing, HTTP error mapping (`400`/`404`/`405`/`409`/`413`/`500`), CORS headers + `OPTIONS 204`, 64 KB body cap, and lock-bounded serialization for all Part 4A read endpoints and `POST /api/sim/control`.
+- **Binary, Tests, Docs, & Scripts**:
+  - `make server` builds `build/transport_server` (`tools/transport_server.c`, CivetWeb + pthreads + cJSON + libcurl).
+  - `tests/test_api_json.c` tests JSON builders, escaping, strict parameter validation, and error mapping without sockets (26 test suites total).
+  - `make smoke` runs [api_smoke.sh](file:///home/prabhashetty/transport/scripts/api_smoke.sh); [dump_mock_data.sh](file:///home/prabhashetty/transport/scripts/dump_mock_data.sh) saves mock payloads under `docs/mock/`; [api_contract.md](file:///home/prabhashetty/transport/docs/api_contract.md) documents the HTTP contract.
+
 

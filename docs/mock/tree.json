@@ -1,0 +1,366 @@
+{
+    "count": 45,
+    "height": 3,
+    "nodes": [
+        {
+            "row": 0,
+            "parent": -1,
+            "depth": 0,
+            "kind": 0,
+            "id": 0,
+            "name": "Bengaluru"
+        },
+        {
+            "row": 1,
+            "parent": 0,
+            "depth": 1,
+            "kind": 1,
+            "id": 0,
+            "name": "Majestic (Kempegowda BS)"
+        },
+        {
+            "row": 2,
+            "parent": 1,
+            "depth": 2,
+            "kind": 2,
+            "id": 0,
+            "name": "R1: Timber Yard Layout - Ganesha Temple"
+        },
+        {
+            "row": 3,
+            "parent": 2,
+            "depth": 3,
+            "kind": 3,
+            "id": 0,
+            "name": "Bus 0"
+        },
+        {
+            "row": 4,
+            "parent": 2,
+            "depth": 3,
+            "kind": 3,
+            "id": 1,
+            "name": "Bus 1"
+        },
+        {
+            "row": 5,
+            "parent": 2,
+            "depth": 3,
+            "kind": 3,
+            "id": 2,
+            "name": "Bus 2"
+        },
+        {
+            "row": 6,
+            "parent": 2,
+            "depth": 3,
+            "kind": 3,
+            "id": 3,
+            "name": "Bus 3"
+        },
+        {
+            "row": 7,
+            "parent": 2,
+            "depth": 3,
+            "kind": 3,
+            "id": 4,
+            "name": "Bus 4"
+        },
+        {
+            "row": 8,
+            "parent": 2,
+            "depth": 3,
+            "kind": 3,
+            "id": 5,
+            "name": "Bus 5"
+        },
+        {
+            "row": 9,
+            "parent": 1,
+            "depth": 2,
+            "kind": 2,
+            "id": 1,
+            "name": "R2: Monotype - Malleshwaram 18th Cross"
+        },
+        {
+            "row": 10,
+            "parent": 9,
+            "depth": 3,
+            "kind": 3,
+            "id": 6,
+            "name": "Bus 6"
+        },
+        {
+            "row": 11,
+            "parent": 9,
+            "depth": 3,
+            "kind": 3,
+            "id": 7,
+            "name": "Bus 7"
+        },
+        {
+            "row": 12,
+            "parent": 9,
+            "depth": 3,
+            "kind": 3,
+            "id": 8,
+            "name": "Bus 8"
+        },
+        {
+            "row": 13,
+            "parent": 9,
+            "depth": 3,
+            "kind": 3,
+            "id": 9,
+            "name": "Bus 9"
+        },
+        {
+            "row": 14,
+            "parent": 9,
+            "depth": 3,
+            "kind": 3,
+            "id": 10,
+            "name": "Bus 10"
+        },
+        {
+            "row": 15,
+            "parent": 9,
+            "depth": 3,
+            "kind": 3,
+            "id": 11,
+            "name": "Bus 11"
+        },
+        {
+            "row": 16,
+            "parent": 1,
+            "depth": 2,
+            "kind": 2,
+            "id": 2,
+            "name": "R3: Basappa Circle - Bashayam Circle"
+        },
+        {
+            "row": 17,
+            "parent": 16,
+            "depth": 3,
+            "kind": 3,
+            "id": 12,
+            "name": "Bus 12"
+        },
+        {
+            "row": 18,
+            "parent": 16,
+            "depth": 3,
+            "kind": 3,
+            "id": 13,
+            "name": "Bus 13"
+        },
+        {
+            "row": 19,
+            "parent": 16,
+            "depth": 3,
+            "kind": 3,
+            "id": 14,
+            "name": "Bus 14"
+        },
+        {
+            "row": 20,
+            "parent": 16,
+            "depth": 3,
+            "kind": 3,
+            "id": 15,
+            "name": "Bus 15"
+        },
+        {
+            "row": 21,
+            "parent": 16,
+            "depth": 3,
+            "kind": 3,
+            "id": 16,
+            "name": "Bus 16"
+        },
+        {
+            "row": 22,
+            "parent": 16,
+            "depth": 3,
+            "kind": 3,
+            "id": 17,
+            "name": "Bus 17"
+        },
+        {
+            "row": 23,
+            "parent": 1,
+            "depth": 2,
+            "kind": 2,
+            "id": 3,
+            "name": "R4: Jayanagara 4th T Block - Shivajinagar Bus Station"
+        },
+        {
+            "row": 24,
+            "parent": 23,
+            "depth": 3,
+            "kind": 3,
+            "id": 18,
+            "name": "Bus 18"
+        },
+        {
+            "row": 25,
+            "parent": 23,
+            "depth": 3,
+            "kind": 3,
+            "id": 19,
+            "name": "Bus 19"
+        },
+        {
+            "row": 26,
+            "parent": 23,
+            "depth": 3,
+            "kind": 3,
+            "id": 20,
+            "name": "Bus 20"
+        },
+        {
+            "row": 27,
+            "parent": 23,
+            "depth": 3,
+            "kind": 3,
+            "id": 21,
+            "name": "Bus 21"
+        },
+        {
+            "row": 28,
+            "parent": 23,
+            "depth": 3,
+            "kind": 3,
+            "id": 22,
+            "name": "Bus 22"
+        },
+        {
+            "row": 29,
+            "parent": 0,
+            "depth": 1,
+            "kind": 1,
+            "id": 1,
+            "name": "Shivajinagar"
+        },
+        {
+            "row": 30,
+            "parent": 29,
+            "depth": 2,
+            "kind": 2,
+            "id": 4,
+            "name": "R5: Krupanidhi College - Indian Oil Sevanagar"
+        },
+        {
+            "row": 31,
+            "parent": 30,
+            "depth": 3,
+            "kind": 3,
+            "id": 23,
+            "name": "Bus 23"
+        },
+        {
+            "row": 32,
+            "parent": 30,
+            "depth": 3,
+            "kind": 3,
+            "id": 24,
+            "name": "Bus 24"
+        },
+        {
+            "row": 33,
+            "parent": 30,
+            "depth": 3,
+            "kind": 3,
+            "id": 25,
+            "name": "Bus 25"
+        },
+        {
+            "row": 34,
+            "parent": 30,
+            "depth": 3,
+            "kind": 3,
+            "id": 26,
+            "name": "Bus 26"
+        },
+        {
+            "row": 35,
+            "parent": 30,
+            "depth": 3,
+            "kind": 3,
+            "id": 27,
+            "name": "Bus 27"
+        },
+        {
+            "row": 36,
+            "parent": 29,
+            "depth": 2,
+            "kind": 2,
+            "id": 5,
+            "name": "R6: Agara - Horamavu Junction"
+        },
+        {
+            "row": 37,
+            "parent": 36,
+            "depth": 3,
+            "kind": 3,
+            "id": 28,
+            "name": "Bus 28"
+        },
+        {
+            "row": 38,
+            "parent": 36,
+            "depth": 3,
+            "kind": 3,
+            "id": 29,
+            "name": "Bus 29"
+        },
+        {
+            "row": 39,
+            "parent": 36,
+            "depth": 3,
+            "kind": 3,
+            "id": 30,
+            "name": "Bus 30"
+        },
+        {
+            "row": 40,
+            "parent": 36,
+            "depth": 3,
+            "kind": 3,
+            "id": 31,
+            "name": "Bus 31"
+        },
+        {
+            "row": 41,
+            "parent": 36,
+            "depth": 3,
+            "kind": 3,
+            "id": 32,
+            "name": "Bus 32"
+        },
+        {
+            "row": 42,
+            "parent": 29,
+            "depth": 2,
+            "kind": 3,
+            "id": 33,
+            "name": "Bus 33"
+        },
+        {
+            "row": 43,
+            "parent": 29,
+            "depth": 2,
+            "kind": 3,
+            "id": 34,
+            "name": "Bus 34"
+        },
+        {
+            "row": 44,
+            "parent": 29,
+            "depth": 2,
+            "kind": 3,
+            "id": 35,
+            "name": "Bus 35"
+        }
+    ]
+}

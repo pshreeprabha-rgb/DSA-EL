@@ -1,0 +1,170 @@
+{
+    "hour": 6,
+    "basis": "forecast",
+    "routes": [
+        {
+            "id": 0,
+            "name": "R1: Timber Yard Layout - Ganesha Temple",
+            "stops": [
+                46,
+                21,
+                57,
+                42,
+                40,
+                28,
+                43,
+                7,
+                45,
+                31
+            ],
+            "loop_min": 73.88070748210002,
+            "cycle_min": 77.21404081543336,
+            "buses": 6,
+            "demand": 88.42105263157895,
+            "priority": 12.631578947368421
+        },
+        {
+            "id": 1,
+            "name": "R2: Monotype - Malleshwaram 18th Cross",
+            "stops": [
+                1,
+                58,
+                59,
+                3,
+                19,
+                13,
+                10,
+                16,
+                36,
+                23
+            ],
+            "loop_min": 55.181062230533335,
+            "cycle_min": 58.514395563866664,
+            "buses": 6,
+            "demand": 146.15789473684214,
+            "priority": 20.879699248120307
+        },
+        {
+            "id": 2,
+            "name": "R3: Basappa Circle - Bashayam Circle",
+            "stops": [
+                15,
+                27,
+                11,
+                24,
+                18,
+                52,
+                6,
+                2,
+                56,
+                33
+            ],
+            "loop_min": 51.214685633316655,
+            "cycle_min": 54.54801896665,
+            "buses": 6,
+            "demand": 107.35087719298247,
+            "priority": 15.335839598997495
+        },
+        {
+            "id": 3,
+            "name": "R4: Jayanagara 4th T Block - Shivajinagar Bus Station",
+            "stops": [
+                38,
+                29,
+                51,
+                37,
+                44,
+                34,
+                30,
+                12,
+                14,
+                26
+            ],
+            "loop_min": 54.14694298245,
+            "cycle_min": 57.48027631578334,
+            "buses": 5,
+            "demand": 126.56140350877192,
+            "priority": 21.093567251461987
+        },
+        {
+            "id": 4,
+            "name": "R5: Krupanidhi College - Indian Oil Sevanagar",
+            "stops": [
+                22,
+                35,
+                47,
+                5,
+                55,
+                39,
+                0,
+                25,
+                9,
+                8
+            ],
+            "loop_min": 54.57174430236667,
+            "cycle_min": 57.9050776357,
+            "buses": 5,
+            "demand": 52,
+            "priority": 8.666666666666666
+        },
+        {
+            "id": 5,
+            "name": "R6: Agara - Horamavu Junction",
+            "stops": [
+                49,
+                32,
+                54,
+                4,
+                41,
+                53,
+                48,
+                17,
+                20,
+                50
+            ],
+            "loop_min": 76.71391304943333,
+            "cycle_min": 80.04724638276666,
+            "buses": 5,
+            "demand": 56.578947368421055,
+            "priority": 9.42982456140351
+        }
+    ],
+    "board": [
+        {
+            "route_id": 3,
+            "priority": 21.093567251461987,
+            "demand": 126.56140350877192,
+            "buses": 5
+        },
+        {
+            "route_id": 1,
+            "priority": 20.879699248120307,
+            "demand": 146.15789473684214,
+            "buses": 6
+        },
+        {
+            "route_id": 2,
+            "priority": 15.335839598997495,
+            "demand": 107.35087719298247,
+            "buses": 6
+        },
+        {
+            "route_id": 0,
+            "priority": 12.631578947368421,
+            "demand": 88.42105263157895,
+            "buses": 6
+        },
+        {
+            "route_id": 5,
+            "priority": 9.42982456140351,
+            "demand": 56.578947368421055,
+            "buses": 5
+        },
+        {
+            "route_id": 4,
+            "priority": 8.666666666666666,
+            "demand": 52,
+            "buses": 5
+        }
+    ]
+}

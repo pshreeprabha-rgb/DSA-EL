@@ -1,0 +1,90 @@
+{
+    "sim": {
+        "arrived": 0,
+        "boarded": 0,
+        "still_waiting": 0,
+        "wait_sum_s": 0,
+        "wait_max_s": 0,
+        "mean_wait_boarded_s": 0,
+        "mean_wait_incl_censored_s": 0,
+        "p50_s": -1,
+        "p95_s": -1,
+        "full_bus_events": 0,
+        "forced_dumps": 0,
+        "stranded_by_breakdown": 0,
+        "bus_arrivals": 0,
+        "moves_applied": 0,
+        "deadhead_s_total": 0,
+        "anomaly_flags": 0,
+        "emergency_dispatches": 0,
+        "stalled_s": 0,
+        "mean_load_factor": 0,
+        "decisions": 0,
+        "decisions_applied": 0
+    },
+    "routes": [
+        {
+            "route": 0,
+            "boarded": 0,
+            "still_waiting": 0,
+            "mean_wait_s": 0,
+            "max_wait_s": 0
+        },
+        {
+            "route": 1,
+            "boarded": 0,
+            "still_waiting": 0,
+            "mean_wait_s": 0,
+            "max_wait_s": 0
+        },
+        {
+            "route": 2,
+            "boarded": 0,
+            "still_waiting": 0,
+            "mean_wait_s": 0,
+            "max_wait_s": 0
+        },
+        {
+            "route": 3,
+            "boarded": 0,
+            "still_waiting": 0,
+            "mean_wait_s": 0,
+            "max_wait_s": 0
+        },
+        {
+            "route": 4,
+            "boarded": 0,
+            "still_waiting": 0,
+            "mean_wait_s": 0,
+            "max_wait_s": 0
+        },
+        {
+            "route": 5,
+            "boarded": 0,
+            "still_waiting": 0,
+            "mean_wait_s": 0,
+            "max_wait_s": 0
+        }
+    ],
+    "ml": {
+        "train_rows": 120960,
+        "test_rows": 51840,
+        "train_days": 84,
+        "test_days": 36,
+        "trees": 30,
+        "depth": 9,
+        "leaf": 30,
+        "rf_mae": 2.4616830249977224,
+        "rf_mae_noisy": 2.4616830249977224,
+        "rf_rmse": 4.07774742819664,
+        "rf_wape": 0.24898086411289944,
+        "rf_mae_lambda": 1.2407586683139291
+    },
+    "last_optimize": null,
+    "traffic": {
+        "source": "simulated",
+        "calls": 0,
+        "live_corridors": 0,
+        "last_error": ""
+    }
+}
