@@ -119,14 +119,14 @@ $ ./build/transport_cli sim-compare --routes 6 --buses 36 --seed 42 --spacing ti
 
 === POLICY COMPARISON SUMMARY ===
 Spacing:                  by-time
-Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches | Impv vs Equal
--------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+------------+--------------
-fixed_equal              | 13344    | 32            | 750.54        | 2130.00      | 5830.11      | 68       | 0            | 0     | 0     | 0          | base
-fixed_proportional       | 13341    | 35            | 754.38        | 2130.00      | 5131.75      | 72       | 0            | 0     | 0     | 0          | -0.5%
-greedy_spec_ma           | 13335    | 41            | 817.70        | 2370.00      | 5461.71      | 79       | 10           | 4     | 0     | 0          | -8.9%
-greedy_marginal_ma       | 13345    | 31            | 822.53        | 2340.00      | 4600.94      | 78       | 45           | 7     | 0     | 0          | -9.6%
-greedy_marginal_rf       | 13350    | 26            | 731.68        | 2010.00      | 3857.17      | 60       | 32           | 6     | 0     | 0          | +2.5%
-greedy_marginal_oracle   | 13345    | 31            | 822.53        | 2340.00      | 4600.94      | 78       | 45           | 7     | 0     | 0          | -9.6%
+Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches
+-------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+-----------
+fixed_equal              | 13344    | 32            | 750.54        | 2130.00      | 5830.11      | 68       | 0            | 0     | 0     | 0         
+fixed_proportional       | 13341    | 35            | 754.38        | 2130.00      | 5131.75      | 72       | 0            | 0     | 0     | 0         
+greedy_spec_ma           | 13335    | 41            | 817.70        | 2370.00      | 5461.71      | 79       | 10           | 4     | 0     | 0         
+greedy_marginal_ma       | 13345    | 31            | 822.53        | 2340.00      | 4600.94      | 78       | 45           | 7     | 0     | 0         
+greedy_marginal_rf       | 13350    | 26            | 731.68        | 2010.00      | 3857.17      | 60       | 32           | 6     | 0     | 0         
+greedy_marginal_oracle   | 13345    | 31            | 822.53        | 2340.00      | 4600.94      | 78       | 45           | 7     | 0     | 0         
 
 
 === 4. SIM-COMPARE: RAIN + EVENT + RESERVE + DISPATCH (TIME SPACING, WARMUP 30M, SEED 42) ===
@@ -138,14 +138,14 @@ $ ./build/transport_cli sim-compare --routes 6 --buses 36 --seed 42 --spacing ti
 
 === POLICY COMPARISON SUMMARY ===
 Spacing:                  by-time
-Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches | Impv vs Equal
--------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+------------+--------------
-fixed_equal              | 13675    | 42            | 986.28        | 3480.00      | 8078.87      | 103      | 0            | 3     | 13    | 3          | base
-fixed_proportional       | 13674    | 43            | 940.92        | 3090.00      | 6423.55      | 106      | 0            | 3     | 12    | 3          | +4.6%
-greedy_spec_ma           | 13653    | 64            | 945.28        | 2700.00      | 5942.50      | 106      | 42           | 8     | 12    | 3          | +4.2%
-greedy_marginal_ma       | 13674    | 43            | 937.25        | 2850.00      | 5392.13      | 101      | 52           | 10    | 12    | 3          | +5.0%
-greedy_marginal_rf       | 13671    | 46            | 855.60        | 2340.00      | 6704.45      | 83       | 25           | 9     | 23    | 3          | +13.2%
-greedy_marginal_oracle   | 13677    | 40            | 956.07        | 2910.00      | 6704.45      | 101      | 39           | 8     | 13    | 3          | +3.1%
+Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches
+-------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+-----------
+fixed_equal              | 13675    | 42            | 986.28        | 3480.00      | 8078.87      | 103      | 0            | 3     | 13    | 3         
+fixed_proportional       | 13674    | 43            | 940.92        | 3090.00      | 6423.55      | 106      | 0            | 3     | 12    | 3         
+greedy_spec_ma           | 13653    | 64            | 945.28        | 2700.00      | 5942.50      | 106      | 42           | 8     | 12    | 3         
+greedy_marginal_ma       | 13674    | 43            | 937.25        | 2850.00      | 5392.13      | 101      | 52           | 10    | 12    | 3         
+greedy_marginal_rf       | 13671    | 46            | 855.60        | 2340.00      | 6704.45      | 83       | 25           | 9     | 23    | 3         
+greedy_marginal_oracle   | 13677    | 40            | 956.07        | 2910.00      | 6704.45      | 101      | 39           | 8     | 13    | 3         
 
 
 === 5. SIM-COMPARE: BREAKDOWN BUS 0 (TIME SPACING, WARMUP 30M, SEED 42) ===
@@ -157,14 +157,14 @@ $ ./build/transport_cli sim-compare --routes 6 --buses 36 --seed 42 --spacing ti
 
 === POLICY COMPARISON SUMMARY ===
 Spacing:                  by-time
-Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches | Impv vs Equal
--------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+------------+--------------
-fixed_equal              | 13342    | 34            | 774.21        | 2250.00      | 5830.11      | 68       | 0            | 0     | 0     | 0          | base
-fixed_proportional       | 13339    | 37            | 778.06        | 2280.00      | 5131.75      | 72       | 0            | 0     | 0     | 0          | -0.5%
-greedy_spec_ma           | 13324    | 52            | 934.47        | 3030.00      | 7479.11      | 89       | 41           | 8     | 0     | 0          | -20.7%
-greedy_marginal_ma       | 13345    | 31            | 892.34        | 2700.00      | 5502.58      | 87       | 61           | 8     | 0     | 0          | -15.3%
-greedy_marginal_rf       | 13333    | 43            | 804.50        | 2250.00      | 4188.32      | 73       | 27           | 3     | 0     | 0          | -3.9%
-greedy_marginal_oracle   | 13331    | 45            | 901.76        | 2760.00      | 5502.58      | 87       | 60           | 6     | 0     | 0          | -16.5%
+Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches
+-------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+-----------
+fixed_equal              | 13342    | 34            | 774.21        | 2250.00      | 5830.11      | 68       | 0            | 0     | 0     | 0         
+fixed_proportional       | 13339    | 37            | 778.06        | 2280.00      | 5131.75      | 72       | 0            | 0     | 0     | 0         
+greedy_spec_ma           | 13324    | 52            | 934.47        | 3030.00      | 7479.11      | 89       | 41           | 8     | 0     | 0         
+greedy_marginal_ma       | 13345    | 31            | 892.34        | 2700.00      | 5502.58      | 87       | 61           | 8     | 0     | 0         
+greedy_marginal_rf       | 13333    | 43            | 804.50        | 2250.00      | 4188.32      | 73       | 27           | 3     | 0     | 0         
+greedy_marginal_oracle   | 13331    | 45            | 901.76        | 2760.00      | 5502.58      | 87       | 60           | 6     | 0     | 0         
 
 
 === 6. SIM-COMPARE: LEGACY STOP SPACING (NO SCENARIO, WARMUP 30M, SEED 42) ===
@@ -176,13 +176,32 @@ $ ./build/transport_cli sim-compare --routes 6 --buses 36 --seed 42 --spacing st
 
 === POLICY COMPARISON SUMMARY ===
 Spacing:                  by-stop
-Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches | Impv vs Equal
--------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+------------+--------------
-fixed_equal              | 13335    | 41            | 1136.50       | 3390.00      | 6642.74      | 136      | 0            | 0     | 0     | 0          | base
-fixed_proportional       | 13308    | 68            | 1186.34       | 3660.00      | 8178.70      | 136      | 0            | 0     | 0     | 0          | -4.4%
-greedy_spec_ma           | 13286    | 90            | 1207.18       | 3720.00      | 6757.52      | 136      | 3            | 3     | 0     | 0          | -6.2%
-greedy_marginal_ma       | 13305    | 71            | 1200.11       | 3780.00      | 5872.13      | 134      | 13           | 7     | 0     | 0          | -5.6%
-greedy_marginal_rf       | 13314    | 62            | 1119.12       | 3450.00      | 5989.94      | 129      | 7            | 6     | 0     | 0          | +1.5%
-greedy_marginal_oracle   | 13305    | 71            | 1200.11       | 3780.00      | 5872.13      | 134      | 13           | 7     | 0     | 0          | -5.6%
+Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches
+-------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+-----------
+fixed_equal              | 13335    | 41            | 1136.50       | 3390.00      | 6642.74      | 136      | 0            | 0     | 0     | 0         
+fixed_proportional       | 13308    | 68            | 1186.34       | 3660.00      | 8178.70      | 136      | 0            | 0     | 0     | 0         
+greedy_spec_ma           | 13286    | 90            | 1207.18       | 3720.00      | 6757.52      | 136      | 3            | 3     | 0     | 0         
+greedy_marginal_ma       | 13305    | 71            | 1200.11       | 3780.00      | 5872.13      | 134      | 13           | 7     | 0     | 0         
+greedy_marginal_rf       | 13314    | 62            | 1119.12       | 3450.00      | 5989.94      | 129      | 7            | 6     | 0     | 0         
+greedy_marginal_oracle   | 13305    | 71            | 1200.11       | 3780.00      | 5872.13      | 134      | 13           | 7     | 0     | 0         
+
+
+=== 7. OBSERVATIONS (SINGLE SEED = 42, NO SCENARIOS) ===
+- With --spacing time and no scenarios (seed 42), greedy_spec_ma (817.70 s,
+  10 forced dumps, 4 moves), greedy_marginal_ma (822.53 s, 45 forced dumps,
+  7 moves), and greedy_marginal_oracle (822.53 s, 45 forced dumps, 7 moves)
+  have a higher mean wait than fixed_equal (750.54 s, 0 forced dumps, 0 moves),
+  while greedy_marginal_rf has 731.68 s (32 forced dumps, 6 moves) and
+  fixed_proportional has 754.38 s (0 forced dumps, 0 moves).
+- In Section 6 above (--spacing stop, no scenarios, seed 42), greedy_spec_ma
+  (1207.18 s, 3 forced dumps, 3 moves), greedy_marginal_ma (1200.11 s, 13 forced
+  dumps, 7 moves), and greedy_marginal_oracle (1200.11 s, 13 forced dumps,
+  7 moves) also have a higher mean wait than fixed_equal (1136.50 s, 0 forced
+  dumps, 0 moves), while greedy_marginal_rf has 1119.12 s (7 forced dumps,
+  6 moves) and fixed_proportional has 1186.34 s (0 forced dumps, 0 moves).
+  These runs use a single seed (seed = 42) and the cause is unmeasured; any
+  earlier --spacing stop run showing the opposite is not in this checkout.
+- Forced dumps remove onboard passengers from a reassigned bus (b->load = 0,
+  forced_dumps += b->load) without any wait-time penalty or re-queuing.
 
 

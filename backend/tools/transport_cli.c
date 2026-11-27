@@ -2431,22 +2431,28 @@ static int cmd_sim_compare(int argc, char **argv) {
         SimPolicy policy;
         DemandPredictor *dp;
         int is_prop;
+        int needs_train;
+        int needs_model;
     } CompPolicy;
 
     CompPolicy pols[6] = {
-        {"fixed_equal",            SIM_POLICY_FIXED_EQUAL,        NULL,   0},
-        {"fixed_proportional",     SIM_POLICY_FIXED_PROPORTIONAL, dp_ma,  1},
-        {"greedy_spec_ma",         SIM_POLICY_GREEDY_SPEC,        dp_ma,  0},
-        {"greedy_marginal_ma",     SIM_POLICY_GREEDY_MARGINAL,    dp_ma,  0},
-        {"greedy_marginal_rf",     SIM_POLICY_GREEDY_MARGINAL,    dp_rf,  0},
-        {"greedy_marginal_oracle", SIM_POLICY_GREEDY_MARGINAL,    NULL,   0}
+        {"fixed_equal",            SIM_POLICY_FIXED_EQUAL,        NULL,   0, 0, 0},
+        {"fixed_proportional",     SIM_POLICY_FIXED_PROPORTIONAL, dp_ma,  1, 1, 0},
+        {"greedy_spec_ma",         SIM_POLICY_GREEDY_SPEC,        dp_ma,  0, 1, 0},
+        {"greedy_marginal_ma",     SIM_POLICY_GREEDY_MARGINAL,    dp_ma,  0, 1, 0},
+        {"greedy_marginal_rf",     SIM_POLICY_GREEDY_MARGINAL,    dp_rf,  0, 0, 1},
+        {"greedy_marginal_oracle", SIM_POLICY_GREEDY_MARGINAL,    NULL,   0, 0, 0}
     };
 
     SimStats stats[6];
     memset(stats, 0, sizeof(stats));
 
     for (int p = 0; p < 6; p++) {
-        if (strcmp(pols[p].name, "greedy_marginal_rf") == 0 && !dp_rf) {
+        if (pols[p].needs_train && !dp_ma) {
+            printf("skipped: training data not loaded: %s\n", train_path);
+            continue;
+        }
+        if (pols[p].needs_model && !dp_rf) {
             printf("skipped: model not loaded: %s\n", model_path);
             continue;
         }
@@ -2499,24 +2505,21 @@ static int cmd_sim_compare(int argc, char **argv) {
 
     printf("\n=== POLICY COMPARISON SUMMARY ===\n");
     printf("Spacing:                  %s\n", (spacing == SIM_SPACING_BY_TIME) ? "by-time" : "by-stop");
-    printf("%-24s | %-8s | %-13s | %-13s | %-12s | %-12s | %-8s | %-12s | %-5s | %-5s | %-10s | %s\n",
+    printf("%-24s | %-8s | %-13s | %-13s | %-12s | %-12s | %-8s | %-12s | %-5s | %-5s | %-10s\n",
            "Policy", "Boarded", "Still Waiting", "Mean Wait (s)", "P95 Wait (s)", "Max Wait (s)",
-           "Full Bus", "Forced Dumps", "Moves", "Flags", "Dispatches", "Impv vs Equal");
-    printf("-------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+------------+--------------\n");
-
-    double base_mean_wait = stats[0].mean_wait_boarded_s;
+           "Full Bus", "Forced Dumps", "Moves", "Flags", "Dispatches");
+    printf("-------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+-----------\n");
 
     for (int p = 0; p < 6; p++) {
-        if (strcmp(pols[p].name, "greedy_marginal_rf") == 0 && !dp_rf) {
+        if (pols[p].needs_train && !dp_ma) {
+            printf("%-24s | (skipped: training data not loaded: %s)\n", pols[p].name, train_path);
+            continue;
+        }
+        if (pols[p].needs_model && !dp_rf) {
             printf("%-24s | (skipped: model not loaded: %s)\n", pols[p].name, model_path);
             continue;
         }
-        char impv_str[32] = "base";
-        if (p > 0 && base_mean_wait > 0.0) {
-            double impv = (base_mean_wait - stats[p].mean_wait_boarded_s) / base_mean_wait * 100.0;
-            snprintf(impv_str, sizeof(impv_str), "%+.1f%%", impv);
-        }
-        printf("%-24s | %-8zu | %-13zu | %-13.2f | %-12.2f | %-12.2f | %-8zu | %-12zu | %-5zu | %-5zu | %-10zu | %s\n",
+        printf("%-24s | %-8zu | %-13zu | %-13.2f | %-12.2f | %-12.2f | %-8zu | %-12zu | %-5zu | %-5zu | %-10zu\n",
                pols[p].name,
                stats[p].boarded,
                stats[p].still_waiting,
@@ -2527,8 +2530,7 @@ static int cmd_sim_compare(int argc, char **argv) {
                stats[p].forced_dumps,
                stats[p].moves_applied,
                stats[p].anomaly_flags,
-               stats[p].emergency_dispatches,
-               impv_str);
+               stats[p].emergency_dispatches);
     }
     printf("\n");
 
