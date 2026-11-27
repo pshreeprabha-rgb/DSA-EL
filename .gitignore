@@ -34,3 +34,4 @@ __pycache__/
 !backend/tests/fixtures/
 backend/.env
 backend/.env
+backend/.env
