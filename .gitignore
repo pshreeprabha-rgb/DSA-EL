@@ -32,3 +32,4 @@ __pycache__/
 !data/ml_metrics.json
 !docs/part3a_results.txt
 !backend/tests/fixtures/
+backend/.env
