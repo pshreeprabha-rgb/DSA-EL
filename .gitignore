@@ -33,3 +33,4 @@ __pycache__/
 !docs/part3a_results.txt
 !backend/tests/fixtures/
 backend/.env
+backend/.env
