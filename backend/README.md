@@ -555,4 +555,14 @@ The simulation engine is single-threaded and strictly deterministic. Given the s
   - `transport_cli anomaly-eval [--seeds S] [--thresholds 3,3.5,4,5] [--out-dir D]`: evaluates `no-event` false alarms and `event` (`17:00-19:00` at `stop 13`) detection rate, median delay, and precision, and verifies `cooldown = 0, threshold = 3.0` against the analytic Poisson expectation within 4 SE.
 - **Makefile Targets**: `make eval-quick` (5-seed `eval-run --quick`) and `make eval` (full 30-seed `eval-run`, `run_coldstart.sh`, and `anomaly-eval`). Results saved in [part3c2_results.txt](file:///home/prabhashetty/transport/docs/part3c2_results.txt).
 
+---
+
+### 14. Part 3D: Transit Registry Module (`registry.h`, `registry.c`)
+- **Hierarchical Tree (`Tree`)**: Root `"Bengaluru"` -> Depots -> Routes (assigned to nearest depot to first tour stop, ties broken by smaller depot index) -> Buses in ascending `bus_id` (plus `RESERVE` buses directly under nearest depot). `registry_sync` mirrors `Sim` bus states, loads, stop coordinates, `DEADHEAD` target routes, and `BROKEN` buses (retaining their last route).
+- **Hash Tables (`HashTable`, `HT_KEY_INT`)**: $O(1)$ lookups for `Bus*`, `Route*`, and `Stop*` via `registry_bus`, `registry_route`, `registry_stop`.
+- **AVL Timetable (`Avl`, `trip_cmp`)**: Generates periodic departures over `[from_min, to_min)` (`registry_build_timetable`, `registry_replan_from`), supports lower-bound lookups (`registry_next_departure`) and range queries (`registry_trips`).
+- **Journey History (`LinkedList`)**: `registry_sim_observer` (`SimLoopFn`, runs under the caller's external lock inside `sim_run_until`) records completed loops per bus capped at `REGISTRY_MAX_JOURNEYS` (200), evicting oldest entries first.
+- **Route Priority Board (`Heap`)**: Ranks routes by `demand / (buses + 1)` descending (ties broken by smaller `route_id`).
+- **CLI & Tests**: `transport_cli registry-info` output saved in [part3d_results.txt](file:///home/prabhashetty/transport/docs/part3d_results.txt); unit/integration suite in `tests/test_registry.c` (25 test suites total).
+
 

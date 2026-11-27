@@ -1,0 +1,76 @@
+
+=== REGISTRY HIERARCHY TREE ===
+Nodes: 46 | Height: 3
+[CITY id=0] Bengaluru (parent_row=-1)
+  [DEPOT id=0] Khodays Circle (parent_row=0)
+  [DEPOT id=1] Railway Station, Majestic (parent_row=0)
+    [ROUTE id=0] R1: Timber Yard Layout - Ganesha Temple (parent_row=2)
+      [BUS id=0] Bus 0 (parent_row=3)
+      [BUS id=1] Bus 1 (parent_row=3)
+      [BUS id=2] Bus 2 (parent_row=3)
+      [BUS id=3] Bus 3 (parent_row=3)
+      [BUS id=4] Bus 4 (parent_row=3)
+      [BUS id=5] Bus 5 (parent_row=3)
+    [ROUTE id=1] R2: Monotype - Malleshwaram 18th Cross (parent_row=2)
+      [BUS id=6] Bus 6 (parent_row=10)
+      [BUS id=7] Bus 7 (parent_row=10)
+      [BUS id=8] Bus 8 (parent_row=10)
+      [BUS id=9] Bus 9 (parent_row=10)
+      [BUS id=10] Bus 10 (parent_row=10)
+      [BUS id=11] Bus 11 (parent_row=10)
+    [ROUTE id=2] R3: Basappa Circle - Bashayam Circle (parent_row=2)
+      [BUS id=12] Bus 12 (parent_row=17)
+      [BUS id=13] Bus 13 (parent_row=17)
+      [BUS id=14] Bus 14 (parent_row=17)
+      [BUS id=15] Bus 15 (parent_row=17)
+      [BUS id=16] Bus 16 (parent_row=17)
+      [BUS id=17] Bus 17 (parent_row=17)
+    [ROUTE id=3] R4: Jayanagara 4th T Block - Shivajinagar Bus Station (parent_row=2)
+      [BUS id=18] Bus 18 (parent_row=24)
+      [BUS id=19] Bus 19 (parent_row=24)
+      [BUS id=20] Bus 20 (parent_row=24)
+      [BUS id=21] Bus 21 (parent_row=24)
+      [BUS id=22] Bus 22 (parent_row=24)
+      [BUS id=23] Bus 23 (parent_row=24)
+  [DEPOT id=2] Naga Talkies (parent_row=0)
+    [ROUTE id=4] R5: Krupanidhi College - Indian Oil Sevanagar (parent_row=31)
+      [BUS id=24] Bus 24 (parent_row=32)
+      [BUS id=25] Bus 25 (parent_row=32)
+      [BUS id=26] Bus 26 (parent_row=32)
+      [BUS id=27] Bus 27 (parent_row=32)
+      [BUS id=28] Bus 28 (parent_row=32)
+      [BUS id=29] Bus 29 (parent_row=32)
+    [ROUTE id=5] R6: Agara - Horamavu Junction (parent_row=31)
+      [BUS id=30] Bus 30 (parent_row=39)
+      [BUS id=31] Bus 31 (parent_row=39)
+      [BUS id=32] Bus 32 (parent_row=39)
+      [BUS id=33] Bus 33 (parent_row=39)
+      [BUS id=34] Bus 34 (parent_row=39)
+      [BUS id=35] Bus 35 (parent_row=39)
+
+=== AVL TIMETABLE (06:00 - 08:00) ===
+Trips: 72 | AVL Height: 7 | Balanced: 1
+First 10 trips:
+Trip ID  | Route  | Bus    | Departure (min)
+---------+--------+--------+----------------
+1        | R1     | 0      | 360 (06:00)
+11       | R2     | 6      | 360 (06:00)
+24       | R3     | 12     | 360 (06:00)
+38       | R4     | 18     | 360 (06:00)
+51       | R5     | 24     | 360 (06:00)
+64       | R6     | 30     | 360 (06:00)
+27       | R3     | 13     | 369 (06:09)
+14       | R2     | 7      | 370 (06:10)
+41       | R4     | 19     | 370 (06:10)
+54       | R5     | 25     | 370 (06:10)
+
+=== ROUTE PRIORITY BOARD (Hour 08:00, Weekday, Dry) ===
+Route  | Demand (p/h) | Buses  | Priority
+-------+--------------+--------+----------
+R4     | 443.01       | 6      | 63.29
+R2     | 318.47       | 6      | 45.50
+R5     | 245.26       | 6      | 35.04
+R3     | 210.76       | 6      | 30.11
+R1     | 175.74       | 6      | 25.11
+R6     | 172.53       | 6      | 24.65
+

@@ -15,6 +15,7 @@
 #include "anomaly.h"
 #include "sim.h"
 #include "eval.h"
+#include "registry.h"
 #include "common.h"
 
 #include <stdio.h>
@@ -169,7 +170,8 @@ static void usage(const char *prog) {
         "    --reassign dump|drain      Reassignment mode (default: drain)\n"
         "    --log                    Print detailed event log\n"
         "  sim-compare [opts]         Multi-policy simulation comparison\n"
-        "    (accepts same scenario and network flags as sim-run)\n"
+        "    (accepts same scenario and network flags as sim-run)\n");
+    fprintf(stderr,
         "  eval-run [opts]            Multi-seed paired evaluation harness\n"
         "    --seeds S                Number of seeds (default: 30; 10 for --diagnostic)\n"
         "    --base-seed B            Starting seed (default: 1000)\n"
@@ -186,7 +188,12 @@ static void usage(const char *prog) {
         "  anomaly-eval [opts]        Evaluate anomaly detector & analytic validation\n"
         "    --seeds S                Number of seeds (default: 30)\n"
         "    --thresholds LIST        Comma-separated thresholds (default: 3,3.5,4,5)\n"
-        "    --out-dir D              Output directory (default: data/eval)\n\n");
+        "    --out-dir D              Output directory (default: data/eval)\n"
+        "  registry-info [opts]       Display registry tree, AVL timetable, and priority board\n"
+        "    --stops N                Number of stops (default: 60)\n"
+        "    --routes R               Number of routes (default: 6)\n"
+        "    --buses B                Total fleet size (default: 36)\n"
+        "    --seed S                 PRNG seed (default: 42)\n\n");
 }
 
 /* ---- 6-node demo graph ---- */
@@ -3796,6 +3803,169 @@ static int cmd_anomaly_eval(int argc, char **argv) {
     return pass ? 0 : 1;
 }
 
+static int cmd_registry_info(int argc, char **argv) {
+    size_t stops_requested = 60;
+    size_t n_routes = 6;
+    size_t n_buses = 36;
+    uint64_t seed = 42ULL;
+
+    for (int i = 0; i < argc; i++) {
+        if ((strcmp(argv[i], "--stops") == 0 || strcmp(argv[i], "--max-stops") == 0) && i + 1 < argc) {
+            stops_requested = (size_t)strtoul(argv[++i], NULL, 10);
+        } else if (strcmp(argv[i], "--routes") == 0 && i + 1 < argc) {
+            n_routes = (size_t)strtoul(argv[++i], NULL, 10);
+        } else if (strcmp(argv[i], "--buses") == 0 && i + 1 < argc) {
+            n_buses = (size_t)strtoul(argv[++i], NULL, 10);
+        } else if (strcmp(argv[i], "--seed") == 0 && i + 1 < argc) {
+            seed = (uint64_t)strtoull(argv[++i], NULL, 10);
+        }
+    }
+
+    char cache_path[512];
+    snprintf(cache_path, sizeof(cache_path), "%s/graph_cache.txt", g_data_dir);
+
+    Graph *g = NULL;
+    if (graph_load(&g, cache_path) != STATUS_OK || !g) {
+        fprintf(stderr, "Error: failed to load graph cache from %s\n", cache_path);
+        return 1;
+    }
+
+    DemandStop *stops = NULL;
+    size_t n_stops = 0;
+    if (demand_stops_from_graph_anchored(g, stops_requested, seed, &stops, &n_stops) != STATUS_OK || !stops) {
+        fprintf(stderr, "Error: failed to select anchored stops\n");
+        graph_destroy(g);
+        return 1;
+    }
+
+    NetworkConfig ncfg;
+    network_config_default(&ncfg);
+    ncfg.n_routes = n_routes;
+    ncfg.build_matrix = 1;
+    NetworkModel *net = NULL;
+    if (network_build(g, stops, n_stops, &ncfg, &net) != STATUS_OK || !net) {
+        fprintf(stderr, "Error: failed to build network\n");
+        free(stops);
+        graph_destroy(g);
+        return 1;
+    }
+
+    SimConfig scfg;
+    sim_config_default(&scfg);
+    scfg.seed = seed;
+    scfg.n_buses = (int)n_buses;
+    Sim *sim = NULL;
+    if (sim_create(net, &scfg, &sim) != STATUS_OK || !sim) {
+        fprintf(stderr, "Error: failed to create simulation\n");
+        network_destroy(net);
+        free(stops);
+        graph_destroy(g);
+        return 1;
+    }
+
+    /* Select up to 3 hub stops (or evenly spaced stops) as depots */
+    RegistryDepotSpec depots[3];
+    size_t n_depots = 0;
+    for (size_t i = 0; i < n_stops && n_depots < 3; i++) {
+        if (stops[i].type == STOP_HUB) {
+            depots[n_depots].name = stops[i].name[0] ? stops[i].name : "Hub Depot";
+            depots[n_depots].stop_idx = i;
+            n_depots++;
+        }
+    }
+    if (n_depots == 0) {
+        depots[0].name = stops[0].name[0] ? stops[0].name : "Central Depot";
+        depots[0].stop_idx = 0;
+        n_depots = 1;
+    }
+
+    Registry *reg = NULL;
+    if (registry_create(net, depots, n_depots, sim, &reg) != STATUS_OK || !reg) {
+        fprintf(stderr, "Error: failed to create registry\n");
+        sim_destroy(sim);
+        network_destroy(net);
+        free(stops);
+        graph_destroy(g);
+        return 1;
+    }
+
+    int *counts = (int *)calloc(n_routes, sizeof(int));
+    double *demands = (double *)calloc(n_routes, sizeof(double));
+    RouteBoardRow *board = (RouteBoardRow *)calloc(n_routes, sizeof(RouteBoardRow));
+    if (!counts || !demands || !board) {
+        free(counts); free(demands); free(board);
+        registry_destroy(reg); sim_destroy(sim); network_destroy(net); free(stops); graph_destroy(g);
+        return 1;
+    }
+
+    for (size_t r = 0; r < n_routes; r++) {
+        counts[r] = (int)sim_route_bus_count(sim, r);
+    }
+    if (registry_build_timetable(reg, counts, n_routes, 360, 480) != STATUS_OK) {
+        fprintf(stderr, "Error: failed to build timetable\n");
+        free(counts); free(demands); free(board);
+        registry_destroy(reg); sim_destroy(sim); network_destroy(net); free(stops); graph_destroy(g);
+        return 1;
+    }
+
+    size_t tcnt = registry_tree_count(reg);
+    RegTreeRow *trows = (RegTreeRow *)calloc(tcnt, sizeof(RegTreeRow));
+    size_t nrows = 0;
+    if (trows) {
+        registry_tree_rows(reg, trows, tcnt, &nrows);
+    }
+
+    printf("\n=== REGISTRY HIERARCHY TREE ===\n");
+    printf("Nodes: %zu | Height: %d\n", tcnt, registry_tree_height(reg));
+    static const char *kind_names[4] = {"CITY", "DEPOT", "ROUTE", "BUS"};
+    for (size_t i = 0; i < nrows; i++) {
+        for (int d = 0; d < trows[i].depth; d++) {
+            printf("  ");
+        }
+        const char *kstr = (trows[i].kind >= 0 && trows[i].kind < 4) ? kind_names[trows[i].kind] : "?";
+        printf("[%s id=%d] %s (parent_row=%d)\n", kstr, trows[i].id, trows[i].name, trows[i].parent_row);
+    }
+    free(trows);
+
+    printf("\n=== AVL TIMETABLE (06:00 - 08:00) ===\n");
+    printf("Trips: %zu | AVL Height: %d | Balanced: %d\n",
+           registry_trip_count(reg), registry_timetable_height(reg), registry_timetable_balanced(reg));
+
+    Trip trips[10];
+    size_t n_trips = 0;
+    registry_trips(reg, 360, 480, -1, trips, 10, &n_trips);
+    printf("First %zu trips:\n", n_trips);
+    printf("%-8s | %-6s | %-6s | %s\n", "Trip ID", "Route", "Bus", "Departure (min)");
+    printf("---------+--------+--------+----------------\n");
+    for (size_t i = 0; i < n_trips; i++) {
+        printf("%-8d | R%-5d | %-6d | %d (%02d:%02d)\n",
+               trips[i].trip_id, trips[i].route_id + 1, trips[i].bus_id,
+               trips[i].departure_time, trips[i].departure_time / 60, trips[i].departure_time % 60);
+    }
+
+    network_route_demands(net, NULL, 8, DAY_WEEKDAY, 0, NULL, 0, demands);
+    registry_route_board(reg, demands, counts, board, n_routes);
+
+    printf("\n=== ROUTE PRIORITY BOARD (Hour 08:00, Weekday, Dry) ===\n");
+    printf("%-6s | %-12s | %-6s | %s\n", "Route", "Demand (p/h)", "Buses", "Priority");
+    printf("-------+--------------+--------+----------\n");
+    for (size_t i = 0; i < n_routes; i++) {
+        printf("R%-5d | %-12.2f | %-6d | %.2f\n",
+               board[i].route_id + 1, board[i].demand, board[i].buses, board[i].priority);
+    }
+    printf("\n");
+
+    free(counts);
+    free(demands);
+    free(board);
+    registry_destroy(reg);
+    sim_destroy(sim);
+    network_destroy(net);
+    free(stops);
+    graph_destroy(g);
+    return 0;
+}
+
 /* ---- main ---- */
 
 int main(int argc, char **argv) {
@@ -3868,6 +4038,8 @@ int main(int argc, char **argv) {
         return cmd_coldstart_eval(sub_argc, sub_argv);
     } else if (strcmp(cmd, "anomaly-eval") == 0) {
         return cmd_anomaly_eval(sub_argc, sub_argv);
+    } else if (strcmp(cmd, "registry-info") == 0) {
+        return cmd_registry_info(sub_argc, sub_argv);
     } else {
         fprintf(stderr, "Unknown command: %s\n\n", cmd);
         usage(argv[0]);

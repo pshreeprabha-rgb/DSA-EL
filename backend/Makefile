@@ -29,14 +29,14 @@ LIB = $(BUILD_DIR)/libtransport_core.a
 SRCS = src/common.c src/types.c src/linkedlist.c src/stack.c src/queue.c src/tree.c src/heap.c src/avl.c src/hashtable.c \
        src/graph.c src/pathfind.c src/reroute.c src/traffic_sim.c src/traffic_client.c src/osm_loader.c \
        src/graph_scc.c src/demand_model.c src/ai_inference.c src/ai_demand.c \
-       src/network.c src/fleet_alloc.c src/anomaly.c src/sim.c src/eval.c
+       src/network.c src/fleet_alloc.c src/anomaly.c src/sim.c src/eval.c src/registry.c
 OBJS = $(patsubst src/%.c,$(BUILD_DIR)/src/%.o,$(SRCS))
 
 TEST_SRCS = tests/test_linkedlist.c tests/test_stack.c tests/test_queue.c tests/test_tree.c tests/test_heap.c tests/test_avl.c tests/test_hashtable.c tests/test_types.c \
             tests/test_graph.c tests/test_pathfind.c tests/test_reroute.c tests/test_traffic_sim.c tests/test_traffic_client.c tests/test_osm_loader.c \
             tests/test_graph_scc.c tests/test_demand_model.c tests/test_ai_inference.c tests/test_ai_demand.c \
             tests/test_network.c tests/test_fleet_alloc.c tests/test_anomaly.c tests/test_sim.c tests/test_sim_ext.c \
-            tests/test_eval.c
+            tests/test_eval.c tests/test_registry.c
 TEST_BINS = $(patsubst tests/%.c,$(BUILD_DIR)/tests/%$(EXE),$(TEST_SRCS))
 
 .PHONY: all test asan valgrind clean cli eval-quick eval
