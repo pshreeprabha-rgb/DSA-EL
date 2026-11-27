@@ -209,7 +209,7 @@ Status api_json_config(const AppCtx *ctx, char **out) {
     cJSON_AddBoolToObject(models, "ma", app_predictor_ma(ctx) != NULL);
     cJSON_AddBoolToObject(models, "rf", app_predictor_rf(ctx) != NULL);
     cJSON_AddItemToObject(root, "models", models);
-    cJSON_AddBoolToObject(root, "offline", 1);
+    cJSON_AddBoolToObject(root, "offline", (opt->offline || opt->no_poll) ? 1 : 0);
 
     return print_and_free(root, out);
 }
@@ -524,6 +524,7 @@ Status api_json_geometry(const AppCtx *ctx, char **out) {
 Status api_json_state(AppCtx *ctx, char **out) {
     if (!ctx || !out) return STATUS_ERR_NULL;
     *out = NULL;
+    app_sync_after_step(ctx);
     Sim *sim = app_sim(ctx);
     const NetworkModel *net = app_network(ctx);
     const SimConfig *sc = app_sim_config(ctx);
@@ -556,7 +557,7 @@ Status api_json_state(AppCtx *ctx, char **out) {
     cJSON_AddStringToObject(root, "day_type", day_type_str(sc->day_type));
     cJSON_AddBoolToObject(root, "rain", sim_rain_active(sim) ? 1 : 0);
     cJSON_AddStringToObject(root, "policy", policy_str(sim_policy(sim)));
-    cJSON_AddStringToObject(root, "traffic_source", "simulated");
+    cJSON_AddStringToObject(root, "traffic_source", app_traffic_source_str(ctx));
     cJSON_AddNumberToObject(root, "geometry_version", (double)app_geometry_version(ctx));
     cJSON_AddNumberToObject(root, "history_size", (double)(rm ? rm_history_size(rm) : 0U));
 
@@ -952,15 +953,28 @@ Status api_json_metrics(AppCtx *ctx, char **out) {
         return STATUS_ERR_NOMEM;
     }
 
-    cJSON_AddStringToObject(traffic_obj, "source", "simulated");
-    cJSON_AddNumberToObject(traffic_obj, "calls", 0.0);
-    cJSON_AddNumberToObject(traffic_obj, "live_corridors", 0.0);
-    cJSON_AddStringToObject(traffic_obj, "last_error", "");
+    const char *opt_raw = app_last_optimize_json(ctx);
+    cJSON *opt_item = NULL;
+    if (opt_raw) {
+        opt_item = cJSON_Parse(opt_raw);
+    }
+    if (!opt_item) {
+        opt_item = cJSON_CreateNull();
+    }
+    if (!opt_item) {
+        cJSON_Delete(ml_item); cJSON_Delete(sim_obj); cJSON_Delete(routes_arr); cJSON_Delete(traffic_obj); cJSON_Delete(root);
+        return STATUS_ERR_NOMEM;
+    }
+
+    cJSON_AddStringToObject(traffic_obj, "source", app_traffic_source_str(ctx));
+    cJSON_AddNumberToObject(traffic_obj, "calls", (double)app_traffic_calls(ctx));
+    cJSON_AddNumberToObject(traffic_obj, "live_corridors", (double)app_traffic_live_corridors(ctx));
+    cJSON_AddStringToObject(traffic_obj, "last_error", app_traffic_last_error(ctx));
 
     cJSON_AddItemToObject(root, "sim", sim_obj);
     cJSON_AddItemToObject(root, "routes", routes_arr);
     cJSON_AddItemToObject(root, "ml", ml_item);
-    cJSON_AddNullToObject(root, "last_optimize");
+    cJSON_AddItemToObject(root, "last_optimize", opt_item);
     cJSON_AddItemToObject(root, "traffic", traffic_obj);
 
     return print_and_free(root, out);
@@ -1049,9 +1063,106 @@ Status api_json_history(const AppCtx *ctx, char **out) {
     return print_and_free(root, out);
 }
 
+static cJSON *parse_json_object_strict(const char *body) {
+    if (!body) return NULL;
+    const char *end = NULL;
+    cJSON *root = cJSON_ParseWithOpts(body, &end, 0);
+    if (!root || !end) {
+        cJSON_Delete(root);
+        return NULL;
+    }
+    while (*end != '\0' && isspace((unsigned char)*end)) {
+        end++;
+    }
+    if (*end != '\0' || !cJSON_IsObject(root)) {
+        cJSON_Delete(root);
+        return NULL;
+    }
+    return root;
+}
+
+static Status json_get_strict_int(const cJSON *obj, const char *key, int min_v, int max_v,
+                                  int *present, int *out) {
+    cJSON *item = cJSON_GetObjectItemCaseSensitive(obj, key);
+    if (!item) {
+        if (present) *present = 0;
+        return STATUS_OK;
+    }
+    if (!cJSON_IsNumber(item) || !isfinite(item->valuedouble)) {
+        return STATUS_ERR_INVALID;
+    }
+    double v = item->valuedouble;
+    if (floor(v) != v || v < (double)min_v || v > (double)max_v) {
+        return STATUS_ERR_INVALID;
+    }
+    if (present) *present = 1;
+    if (out) *out = (int)v;
+    return STATUS_OK;
+}
+
+Status api_json_eval(const AppCtx *ctx, char **out) {
+    if (!ctx || !out) return STATUS_ERR_NULL;
+    *out = NULL;
+    const char *path = app_eval_path(ctx);
+    if (!path || path[0] == '\0') return STATUS_ERR_NOT_FOUND;
+
+    FILE *fp = fopen(path, "rb");
+    if (!fp) return STATUS_ERR_NOT_FOUND;
+
+    if (fseek(fp, 0, SEEK_END) != 0) {
+        fclose(fp);
+        return STATUS_ERR_NULL;
+    }
+    long sz = ftell(fp);
+    if (sz <= 0 || sz > 2097152L) {
+        fclose(fp);
+        return STATUS_ERR_NULL;
+    }
+    if (fseek(fp, 0, SEEK_SET) != 0) {
+        fclose(fp);
+        return STATUS_ERR_NULL;
+    }
+
+    char *buf = (char *)malloc((size_t)sz + 1U);
+    if (!buf) {
+        fclose(fp);
+        return STATUS_ERR_NOMEM;
+    }
+    size_t nread = fread(buf, 1, (size_t)sz, fp);
+    fclose(fp);
+    buf[nread] = '\0';
+
+    const char *end = NULL;
+    cJSON *parsed = cJSON_ParseWithOpts(buf, &end, 0);
+    if (parsed && end) {
+        while (*end != '\0' && isspace((unsigned char)*end)) {
+            end++;
+        }
+    }
+    if (!parsed || !end || *end != '\0') {
+        cJSON_Delete(parsed);
+        free(buf);
+        /* Mapped to HTTP 500 for malformed summary JSON */
+        return STATUS_ERR_NULL;
+    }
+    free(buf);
+    return print_and_free(parsed, out);
+}
+
 Status api_json_sim_control_parse(const char *body, char *action_buf, size_t action_cap,
                                   int *has_action, int *has_speed, double *speed_out) {
-    if (!body || !action_buf || !has_action || !has_speed || !speed_out) {
+    int dummy_has_t = 0;
+    double dummy_t = 0.0;
+    return api_json_sim_control_parse_ext(body, action_buf, action_cap,
+                                          has_action, has_speed, speed_out,
+                                          &dummy_has_t, &dummy_t);
+}
+
+Status api_json_sim_control_parse_ext(const char *body, char *action_buf, size_t action_cap,
+                                      int *has_action, int *has_speed, double *speed_out,
+                                      int *has_time_min, double *time_min_out) {
+    if (!body || !action_buf || !has_action || !has_speed || !speed_out ||
+        !has_time_min || !time_min_out) {
         return STATUS_ERR_NULL;
     }
     if (action_cap == 0) return STATUS_ERR_INVALID;
@@ -1060,12 +1171,11 @@ Status api_json_sim_control_parse(const char *body, char *action_buf, size_t act
     *has_action = 0;
     *has_speed = 0;
     *speed_out = 0.0;
+    *has_time_min = 0;
+    *time_min_out = 0.0;
 
-    cJSON *root = cJSON_Parse(body);
-    if (!root || !cJSON_IsObject(root)) {
-        cJSON_Delete(root);
-        return STATUS_ERR_INVALID;
-    }
+    cJSON *root = parse_json_object_strict(body);
+    if (!root) return STATUS_ERR_INVALID;
 
     cJSON *j_act = cJSON_GetObjectItemCaseSensitive(root, "action");
     if (j_act != NULL) {
@@ -1076,7 +1186,8 @@ Status api_json_sim_control_parse(const char *body, char *action_buf, size_t act
         }
         const char *a = j_act->valuestring;
         if (strcmp(a, "start") != 0 && strcmp(a, "pause") != 0 &&
-            strcmp(a, "resume") != 0 && strcmp(a, "speed") != 0) {
+            strcmp(a, "resume") != 0 && strcmp(a, "speed") != 0 &&
+            strcmp(a, "reset") != 0 && strcmp(a, "seek") != 0) {
             cJSON_Delete(root);
             return STATUS_ERR_INVALID;
         }
@@ -1095,10 +1206,27 @@ Status api_json_sim_control_parse(const char *body, char *action_buf, size_t act
         *speed_out = j_spd->valuedouble;
     }
 
+    cJSON *j_t = cJSON_GetObjectItemCaseSensitive(root, "time_min");
+    if (j_t != NULL) {
+        if (!cJSON_IsNumber(j_t) || !isfinite(j_t->valuedouble) ||
+            j_t->valuedouble < 0.0 || j_t->valuedouble > 1440.0) {
+            cJSON_Delete(root);
+            return STATUS_ERR_INVALID;
+        }
+        *has_time_min = 1;
+        *time_min_out = j_t->valuedouble;
+    }
+
     cJSON_Delete(root);
 
     if (!*has_action && !*has_speed) return STATUS_ERR_INVALID;
     if (*has_action && strcmp(action_buf, "speed") == 0 && !*has_speed) {
+        return STATUS_ERR_INVALID;
+    }
+    if (*has_action && strcmp(action_buf, "seek") == 0 && !*has_time_min) {
+        return STATUS_ERR_INVALID;
+    }
+    if (*has_time_min && (!*has_action || strcmp(action_buf, "seek") != 0)) {
         return STATUS_ERR_INVALID;
     }
     return STATUS_OK;
@@ -1113,9 +1241,451 @@ Status api_json_sim_control_ok(const AppCtx *ctx, char **out) {
     cJSON *root = cJSON_CreateObject();
     if (!root) return STATUS_ERR_NOMEM;
     cJSON_AddBoolToObject(root, "ok", 1);
+    cJSON_AddNumberToObject(root, "clock_min", sim_now_min(sim));
     cJSON_AddBoolToObject(root, "running", app_is_running(ctx) ? 1 : 0);
     cJSON_AddNumberToObject(root, "speed", app_speed(ctx));
-    cJSON_AddNumberToObject(root, "clock_min", sim_now_min(sim));
     return print_and_free(root, out);
+}
+
+Status api_json_handle_scenario(AppCtx *ctx, const char *body, char **out) {
+    if (!ctx || !body || !out) return STATUS_ERR_NULL;
+    *out = NULL;
+
+    const Graph *g = app_graph(ctx);
+    const NetworkModel *net = app_network(ctx);
+    const Sim *sim = app_sim_const(ctx);
+    if (!g || !net || !sim) return STATUS_ERR_NULL;
+
+    cJSON *root = parse_json_object_strict(body);
+    if (!root) return STATUS_ERR_INVALID;
+
+    cJSON *j_kind = cJSON_GetObjectItemCaseSensitive(root, "kind");
+    if (!cJSON_IsString(j_kind) || !j_kind->valuestring) {
+        cJSON_Delete(root);
+        return STATUS_ERR_INVALID;
+    }
+    const char *kind_str = j_kind->valuestring;
+
+    SimScenarioKind skind = SIM_SCEN_RAIN_ON;
+    int needs_arg = 0; /* 0=none, 1=stop, 2=bus, 3=edge_or_route_leg */
+    if (strcmp(kind_str, "rain_on") == 0) { skind = SIM_SCEN_RAIN_ON; needs_arg = 0; }
+    else if (strcmp(kind_str, "rain_off") == 0) { skind = SIM_SCEN_RAIN_OFF; needs_arg = 0; }
+    else if (strcmp(kind_str, "event_on") == 0) { skind = SIM_SCEN_EVENT_ON; needs_arg = 1; }
+    else if (strcmp(kind_str, "event_off") == 0) { skind = SIM_SCEN_EVENT_OFF; needs_arg = 1; }
+    else if (strcmp(kind_str, "block_edge") == 0) { skind = SIM_SCEN_BLOCK_EDGE; needs_arg = 3; }
+    else if (strcmp(kind_str, "unblock_edge") == 0) { skind = SIM_SCEN_UNBLOCK_EDGE; needs_arg = 3; }
+    else if (strcmp(kind_str, "breakdown") == 0) { skind = SIM_SCEN_BREAKDOWN; needs_arg = 2; }
+    else if (strcmp(kind_str, "repair") == 0) { skind = SIM_SCEN_REPAIR; needs_arg = 2; }
+    else {
+        cJSON_Delete(root);
+        return STATUS_ERR_INVALID;
+    }
+
+    int arg = 0;
+    Status st = STATUS_OK;
+    if (needs_arg == 1) {
+        int present = 0;
+        int n_stops = (int)network_stop_count(net);
+        st = json_get_strict_int(root, "stop", 0, n_stops - 1, &present, &arg);
+        if (st != STATUS_OK || !present) {
+            cJSON_Delete(root);
+            return STATUS_ERR_INVALID;
+        }
+    } else if (needs_arg == 2) {
+        int present = 0;
+        int n_buses = (int)sim_bus_count(sim);
+        st = json_get_strict_int(root, "bus", 0, n_buses - 1, &present, &arg);
+        if (st != STATUS_OK || !present) {
+            cJSON_Delete(root);
+            return STATUS_ERR_INVALID;
+        }
+    } else if (needs_arg == 3) {
+        int has_edge = 0, edge_id = -1;
+        int has_route = 0, route_id = -1;
+        int has_leg = 0, leg_idx = -1;
+        int n_edges = (int)graph_edge_count(g);
+        int n_routes = (int)network_route_count(net);
+
+        st = json_get_strict_int(root, "edge", 0, n_edges - 1, &has_edge, &edge_id);
+        if (st == STATUS_OK) {
+            st = json_get_strict_int(root, "route", 0, n_routes - 1, &has_route, &route_id);
+        }
+        if (st == STATUS_OK && has_route) {
+            int n_legs = (int)network_route_stop_count(net, (size_t)route_id);
+            st = json_get_strict_int(root, "leg", 0, n_legs - 1, &has_leg, &leg_idx);
+        } else if (st == STATUS_OK) {
+            st = json_get_strict_int(root, "leg", 0, 100000, &has_leg, &leg_idx);
+        }
+
+        if (st != STATUS_OK) {
+            cJSON_Delete(root);
+            return STATUS_ERR_INVALID;
+        }
+        if (has_edge && !has_route && !has_leg) {
+            arg = edge_id;
+        } else if (!has_edge && has_route && has_leg) {
+            const PathResult *p = network_leg_path(net, (size_t)route_id, (size_t)leg_idx);
+            if (!p || !p->found || p->edge_count == 0 || !p->edges) {
+                cJSON_Delete(root);
+                return STATUS_ERR_EMPTY;
+            }
+            arg = p->edges[0];
+        } else {
+            cJSON_Delete(root);
+            return STATUS_ERR_INVALID;
+        }
+    }
+
+    double t_min = 0.0;
+    st = app_schedule_scenario(ctx, skind, arg, &t_min);
+    if (st != STATUS_OK) {
+        cJSON_Delete(root);
+        return st;
+    }
+
+    cJSON *resp = cJSON_CreateObject();
+    if (!resp) {
+        cJSON_Delete(root);
+        return STATUS_ERR_NOMEM;
+    }
+    cJSON_AddBoolToObject(resp, "scheduled", 1);
+    cJSON_AddNumberToObject(resp, "time_min", t_min);
+    cJSON_AddStringToObject(resp, "kind", kind_str);
+    cJSON_Delete(root);
+    return print_and_free(resp, out);
+}
+
+Status api_json_handle_allocate(AppCtx *ctx, const char *body, char **out) {
+    if (!ctx || !body || !out) return STATUS_ERR_NULL;
+    *out = NULL;
+
+    const NetworkModel *net = app_network(ctx);
+    const Sim *sim = app_sim_const(ctx);
+    if (!net || !sim) return STATUS_ERR_NULL;
+
+    cJSON *root = parse_json_object_strict(body);
+    if (!root) return STATUS_ERR_INVALID;
+
+    cJSON *j_mm = cJSON_GetObjectItemCaseSensitive(root, "manual_move");
+    cJSON *j_pol = cJSON_GetObjectItemCaseSensitive(root, "policy");
+
+    if (j_mm != NULL) {
+        if (j_pol != NULL || !cJSON_IsObject(j_mm)) {
+            cJSON_Delete(root);
+            return STATUS_ERR_INVALID;
+        }
+        int has_bus = 0, bus_id = -1, has_rt = 0, to_route = -1;
+        int n_buses = (int)sim_bus_count(sim);
+        int n_routes = (int)network_route_count(net);
+        Status st = json_get_strict_int(j_mm, "bus", 0, n_buses - 1, &has_bus, &bus_id);
+        if (st == STATUS_OK) {
+            st = json_get_strict_int(j_mm, "to_route", -1, n_routes - 1, &has_rt, &to_route);
+        }
+        cJSON_Delete(root);
+        if (st != STATUS_OK || !has_bus || !has_rt) return STATUS_ERR_INVALID;
+
+        st = app_manual_move(ctx, bus_id, to_route);
+        if (st != STATUS_OK) return st;
+
+        cJSON *resp = cJSON_CreateObject();
+        cJSON *moved = cJSON_CreateObject();
+        if (!resp || !moved) {
+            cJSON_Delete(resp);
+            cJSON_Delete(moved);
+            return STATUS_ERR_NOMEM;
+        }
+        cJSON_AddNumberToObject(moved, "bus", (double)bus_id);
+        cJSON_AddNumberToObject(moved, "to_route", (double)to_route);
+        cJSON_AddItemToObject(resp, "moved", moved);
+        return print_and_free(resp, out);
+    }
+
+    if (!cJSON_IsString(j_pol) || !j_pol->valuestring) {
+        cJSON_Delete(root);
+        return STATUS_ERR_INVALID;
+    }
+
+    SimPolicy pol = SIM_POLICY_FIXED_EQUAL;
+    const char *ps = j_pol->valuestring;
+    if (strcmp(ps, "equal") == 0 || strcmp(ps, "fixed_equal") == 0 || strcmp(ps, "fixed-equal") == 0) {
+        pol = SIM_POLICY_FIXED_EQUAL;
+    } else if (strcmp(ps, "proportional") == 0 || strcmp(ps, "fixed_proportional") == 0 || strcmp(ps, "fixed-prop") == 0) {
+        pol = SIM_POLICY_FIXED_PROPORTIONAL;
+    } else if (strcmp(ps, "greedy_spec") == 0 || strcmp(ps, "greedy-spec") == 0) {
+        pol = SIM_POLICY_GREEDY_SPEC;
+    } else if (strcmp(ps, "greedy_marginal") == 0 || strcmp(ps, "greedy-marginal") == 0) {
+        pol = SIM_POLICY_GREEDY_MARGINAL;
+    } else {
+        cJSON_Delete(root);
+        return STATUS_ERR_INVALID;
+    }
+
+    const char *pred_name = NULL;
+    char pred_buf[32];
+    pred_buf[0] = '\0';
+    cJSON *j_pred = cJSON_GetObjectItemCaseSensitive(root, "predictor");
+    if (j_pred != NULL) {
+        if (!cJSON_IsString(j_pred) || !j_pred->valuestring ||
+            strlen(j_pred->valuestring) >= sizeof(pred_buf)) {
+            cJSON_Delete(root);
+            return STATUS_ERR_INVALID;
+        }
+        snprintf(pred_buf, sizeof(pred_buf), "%s", j_pred->valuestring);
+        pred_name = pred_buf;
+    }
+
+    int force = 0;
+    cJSON *j_force = cJSON_GetObjectItemCaseSensitive(root, "force");
+    if (j_force != NULL) {
+        if (!cJSON_IsBool(j_force)) {
+            cJSON_Delete(root);
+            return STATUS_ERR_INVALID;
+        }
+        force = cJSON_IsTrue(j_force) ? 1 : 0;
+    }
+    cJSON_Delete(root);
+
+    size_t moves = 0;
+    Status st = app_set_allocation(ctx, pol, pred_name, force, &moves);
+    if (st != STATUS_OK) return st;
+
+    cJSON *resp = cJSON_CreateObject();
+    cJSON *dec = cJSON_CreateObject();
+    cJSON *counts = cJSON_CreateArray();
+    if (!resp || !dec || !counts) {
+        cJSON_Delete(resp);
+        cJSON_Delete(dec);
+        cJSON_Delete(counts);
+        return STATUS_ERR_NOMEM;
+    }
+
+    cJSON_AddStringToObject(resp, "policy", policy_str(pol));
+    cJSON_AddBoolToObject(dec, "forced", force);
+    cJSON_AddNumberToObject(dec, "moves_applied", (double)moves);
+    cJSON_AddItemToObject(resp, "decision", dec);
+
+    size_t nr = network_route_count(net);
+    for (size_t r = 0; r < nr; r++) {
+        cJSON_AddItemToArray(counts, cJSON_CreateNumber((double)sim_route_bus_count(sim, r)));
+    }
+    cJSON_AddItemToObject(resp, "counts", counts);
+    return print_and_free(resp, out);
+}
+
+Status api_json_handle_inject(AppCtx *ctx, const char *body, char **out) {
+    if (!ctx || !body || !out) return STATUS_ERR_NULL;
+    *out = NULL;
+
+    const NetworkModel *net = app_network(ctx);
+    if (!net) return STATUS_ERR_NULL;
+
+    cJSON *root = parse_json_object_strict(body);
+    if (!root) return STATUS_ERR_INVALID;
+
+    int n_stops = (int)network_stop_count(net);
+    int has_stop = 0, stop_idx = 0;
+    int has_count = 0, count = 0;
+    int has_ride = 0, ride = 0;
+
+    Status st = json_get_strict_int(root, "stop", 0, n_stops - 1, &has_stop, &stop_idx);
+    if (st == STATUS_OK) {
+        st = json_get_strict_int(root, "count", 1, 500, &has_count, &count);
+    }
+    if (st == STATUS_OK) {
+        st = json_get_strict_int(root, "ride", 0, 10000, &has_ride, &ride);
+    }
+    cJSON_Delete(root);
+    if (st != STATUS_OK || !has_stop || !has_count) return STATUS_ERR_INVALID;
+
+    double time_s = 0.0;
+    st = app_inject(ctx, (size_t)stop_idx, count, has_ride ? ride : 0, &time_s);
+    if (st != STATUS_OK) return st;
+
+    cJSON *resp = cJSON_CreateObject();
+    if (!resp) return STATUS_ERR_NOMEM;
+    cJSON_AddNumberToObject(resp, "stop", (double)stop_idx);
+    cJSON_AddNumberToObject(resp, "count", (double)count);
+    cJSON_AddNumberToObject(resp, "time_s", time_s);
+    return print_and_free(resp, out);
+}
+
+static cJSON *build_path_algo_json(const Graph *g, int src_node, int dst_node,
+                                   SearchAlgo algo, CostMode mode, size_t *explored_out) {
+    PathResult pr;
+    path_result_init(&pr);
+    if (find_path(g, src_node, dst_node, algo, mode, &pr) != STATUS_OK) {
+        path_result_free(&pr);
+        return NULL;
+    }
+
+    if (explored_out) *explored_out = pr.nodes_explored;
+
+    cJSON *obj = cJSON_CreateObject();
+    cJSON *parr = cJSON_CreateArray();
+    if (!obj || !parr) {
+        cJSON_Delete(obj);
+        cJSON_Delete(parr);
+        path_result_free(&pr);
+        return NULL;
+    }
+
+    cJSON_AddBoolToObject(obj, "found", pr.found ? 1 : 0);
+    cJSON_AddNumberToObject(obj, "time_s", pr.found ? sanitize_double(pr.total_time_s) : 0.0);
+    cJSON_AddNumberToObject(obj, "length_m", pr.found ? sanitize_double(pr.total_length_m) : 0.0);
+    cJSON_AddNumberToObject(obj, "nodes_explored", (double)pr.nodes_explored);
+    cJSON_AddNumberToObject(obj, "time_static_s", path_time_s(g, &pr, COST_STATIC));
+    cJSON_AddNumberToObject(obj, "time_traffic_s", path_time_s(g, &pr, COST_TRAFFIC));
+
+    if (pr.found && pr.nodes) {
+        for (size_t i = 0; i < pr.node_count; i++) {
+            const GraphNode *gn = graph_node(g, pr.nodes[i]);
+            if (!gn) continue;
+            cJSON *pt = cJSON_CreateArray();
+            if (!pt) {
+                cJSON_Delete(parr);
+                cJSON_Delete(obj);
+                path_result_free(&pr);
+                return NULL;
+            }
+            cJSON_AddItemToArray(pt, cJSON_CreateNumber(gn->lat));
+            cJSON_AddItemToArray(pt, cJSON_CreateNumber(gn->lng));
+            cJSON_AddItemToArray(parr, pt);
+        }
+    }
+
+    path_result_free(&pr);
+    cJSON_AddItemToObject(obj, "path", parr);
+    return obj;
+}
+
+Status api_json_handle_route_optimize(AppCtx *ctx, const char *body, char **out) {
+    if (!ctx || !body || !out) return STATUS_ERR_NULL;
+    *out = NULL;
+
+    const Graph *g = app_graph(ctx);
+    size_t n_stops = 0;
+    const DemandStop *stops = app_stops(ctx, &n_stops);
+    if (!g || !stops) return STATUS_ERR_NULL;
+
+    cJSON *root = parse_json_object_strict(body);
+    if (!root) return STATUS_ERR_INVALID;
+
+    int has_from = 0, from_stop = 0;
+    int has_to = 0, to_stop = 0;
+    Status st = json_get_strict_int(root, "from_stop", 0, (int)n_stops - 1, &has_from, &from_stop);
+    if (st == STATUS_OK) {
+        st = json_get_strict_int(root, "to_stop", 0, (int)n_stops - 1, &has_to, &to_stop);
+    }
+    if (st != STATUS_OK || !has_from || !has_to) {
+        cJSON_Delete(root);
+        return STATUS_ERR_INVALID;
+    }
+
+    int want_astar = 1, want_dijk = 1;
+    cJSON *j_algo = cJSON_GetObjectItemCaseSensitive(root, "algo");
+    if (j_algo != NULL) {
+        if (!cJSON_IsString(j_algo) || !j_algo->valuestring) {
+            cJSON_Delete(root);
+            return STATUS_ERR_INVALID;
+        }
+        const char *as = j_algo->valuestring;
+        if (strcmp(as, "astar") == 0) { want_astar = 1; want_dijk = 0; }
+        else if (strcmp(as, "dijkstra") == 0) { want_astar = 0; want_dijk = 1; }
+        else if (strcmp(as, "both") == 0) { want_astar = 1; want_dijk = 1; }
+        else {
+            cJSON_Delete(root);
+            return STATUS_ERR_INVALID;
+        }
+    }
+
+    CostMode mode = COST_TRAFFIC;
+    const char *mode_str = "traffic";
+    cJSON *j_mode = cJSON_GetObjectItemCaseSensitive(root, "mode");
+    if (j_mode != NULL) {
+        if (!cJSON_IsString(j_mode) || !j_mode->valuestring) {
+            cJSON_Delete(root);
+            return STATUS_ERR_INVALID;
+        }
+        if (strcmp(j_mode->valuestring, "traffic") == 0) {
+            mode = COST_TRAFFIC;
+            mode_str = "traffic";
+        } else if (strcmp(j_mode->valuestring, "static") == 0) {
+            mode = COST_STATIC;
+            mode_str = "static";
+        } else {
+            cJSON_Delete(root);
+            return STATUS_ERR_INVALID;
+        }
+    }
+    cJSON_Delete(root);
+
+    int src_node = stops[from_stop].node;
+    int dst_node = stops[to_stop].node;
+
+    cJSON *resp = cJSON_CreateObject();
+    if (!resp) return STATUS_ERR_NOMEM;
+    cJSON_AddStringToObject(resp, "mode", mode_str);
+
+    size_t a_exp = 0, d_exp = 0;
+    if (want_astar) {
+        cJSON *aobj = build_path_algo_json(g, src_node, dst_node, SEARCH_ASTAR, mode, &a_exp);
+        if (!aobj) {
+            cJSON_Delete(resp);
+            return STATUS_ERR_NOMEM;
+        }
+        cJSON_AddItemToObject(resp, "astar", aobj);
+    }
+    if (want_dijk) {
+        cJSON *dobj = build_path_algo_json(g, src_node, dst_node, SEARCH_DIJKSTRA, mode, &d_exp);
+        if (!dobj) {
+            cJSON_Delete(resp);
+            return STATUS_ERR_NOMEM;
+        }
+        cJSON_AddItemToObject(resp, "dijkstra", dobj);
+    }
+    if (want_astar && want_dijk) {
+        double ratio = (d_exp > 0) ? ((double)a_exp / (double)d_exp) : 0.0;
+        cJSON_AddNumberToObject(resp, "nodes_ratio", ratio);
+    }
+
+    char *printed = NULL;
+    st = print_and_free(resp, &printed);
+    if (st != STATUS_OK) return st;
+
+    st = app_set_last_optimize(ctx, printed);
+    if (st != STATUS_OK) {
+        free(printed);
+        return st;
+    }
+    *out = printed;
+    return STATUS_OK;
+}
+
+Status api_json_handle_undo(AppCtx *ctx, const char *body, char **out) {
+    if (!ctx || !out) return STATUS_ERR_NULL;
+    *out = NULL;
+
+    if (body) {
+        const char *p = body;
+        while (*p != '\0' && isspace((unsigned char)*p)) p++;
+        if (*p != '\0') {
+            cJSON *obj = parse_json_object_strict(body);
+            if (!obj) return STATUS_ERR_INVALID;
+            cJSON_Delete(obj);
+        }
+    }
+
+    char desc[128];
+    desc[0] = '\0';
+    size_t hsz = 0;
+    Status st = app_undo(ctx, desc, sizeof(desc), &hsz);
+    if (st != STATUS_OK) return st;
+
+    cJSON *resp = cJSON_CreateObject();
+    if (!resp) return STATUS_ERR_NOMEM;
+    cJSON_AddStringToObject(resp, "undone", desc);
+    cJSON_AddNumberToObject(resp, "history_size", (double)hsz);
+    cJSON_AddNumberToObject(resp, "geometry_version", (double)app_geometry_version(ctx));
+    return print_and_free(resp, out);
 }
 

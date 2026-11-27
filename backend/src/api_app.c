@@ -1,6 +1,7 @@
 #include "api_app.h"
 #include "api_platform.h"
 #include "ai_inference.h"
+#include "traffic_client.h"
 
 #include <math.h>
 #include <stdatomic.h>
@@ -18,12 +19,15 @@
 #  include <cjson/cJSON.h>
 #endif
 
+#define API_MAX_CORRIDORS 64
+
 struct AppCtx {
     AppOptions opt;
     char *bind_addr_copy;
     char *data_dir_copy;
     char *predictor_opt_copy;
     char *cors_origin_copy;
+    char *eval_path_copy;
 
     Graph *graph;
     DemandStop *stops;
@@ -34,19 +38,35 @@ struct AppCtx {
     const DemandPredictor *active_pred;
     const char *active_pred_name;
 
+    SimConfig base_sim_cfg;
+    const DemandPredictor *base_active_pred;
+    const char *base_active_pred_name;
+
     SimConfig sim_cfg;
     Sim *sim;
     Registry *registry;
 
     char *ml_metrics_json;
+    char *last_optimize_json;
+
+    /* Private traffic poller state (poller_graph & tu touched solely by poller thread until joined) */
+    Graph *poller_graph;
+    TrafficUpdater *tu;
+    TrafficSource traffic_source;
+    int traffic_calls;
+    size_t traffic_live_corridors;
+    char traffic_last_error[256];
 
     ApiMutex *mutex;
     ApiThread *sim_thread;
+    ApiThread *poller_thread;
     atomic_int stop_flag;
     int thread_running;
+    int poller_running;
 
     int running;
     double speed;
+    size_t last_rm_history_size;
     uint64_t geometry_version;
     uint64_t generation;
 };
@@ -92,7 +112,6 @@ static char *read_file_text_binary(const char *path) {
     size_t nread = fread(buf, 1, (size_t)sz, fp);
     fclose(fp);
     buf[nread] = '\0';
-    /* Validate JSON structure once at load */
     cJSON *parsed = cJSON_Parse(buf);
     if (!parsed) {
         free(buf);
@@ -154,6 +173,94 @@ static Status init_registry_and_timetable(AppCtx *ctx) {
     return st;
 }
 
+void app_sync_after_step(AppCtx *ctx) {
+    if (!ctx) return;
+    if (ctx->registry && ctx->sim) {
+        registry_sync(ctx->registry, ctx->sim);
+    }
+    RouteManager *rm = ctx->net ? network_route_manager(ctx->net) : NULL;
+    if (rm) {
+        size_t hsz = rm_history_size(rm);
+        if (hsz != ctx->last_rm_history_size) {
+            ctx->last_rm_history_size = hsz;
+            ctx->geometry_version++;
+        }
+    }
+}
+
+static Status create_sim_with_cfg(AppCtx *ctx, const SimConfig *cfg_in) {
+    SimConfig cfg = *cfg_in;
+    double *prop_weights = NULL;
+
+    if (cfg.policy == SIM_POLICY_FIXED_PROPORTIONAL) {
+        size_t nr = network_route_count(ctx->net);
+        prop_weights = (double *)calloc(nr > 0 ? nr : 1, sizeof(double));
+        if (!prop_weights) return STATUS_ERR_NOMEM;
+        int start_hr = (int)floor(cfg.start_min / 60.0);
+        if (start_hr < 0) start_hr = 0;
+        if (start_hr > 23) start_hr = 23;
+        Status wst = network_route_demands(ctx->net, cfg.predictor, start_hr, cfg.day_type,
+                                           cfg.rain, NULL, 0, prop_weights);
+        if (wst != STATUS_OK) {
+            free(prop_weights);
+            return wst;
+        }
+        cfg.prop_weights = prop_weights;
+    }
+
+    Sim *new_sim = NULL;
+    Status st = sim_create(ctx->net, &cfg, &new_sim);
+    free(prop_weights);
+    if (st != STATUS_OK || !new_sim) {
+        return (st == STATUS_OK) ? STATUS_ERR_INVALID : st;
+    }
+    ctx->sim = new_sim;
+    return STATUS_OK;
+}
+
+static Status app_reset_locked(AppCtx *ctx) {
+    if (!ctx || !ctx->net || !ctx->graph) return STATUS_ERR_NULL;
+
+    registry_destroy(ctx->registry);
+    ctx->registry = NULL;
+    sim_destroy(ctx->sim);
+    ctx->sim = NULL;
+
+    free(ctx->last_optimize_json);
+    ctx->last_optimize_json = NULL;
+
+    RouteManager *rm = network_route_manager(ctx->net);
+    if (rm) {
+        while (rm_undo(rm, NULL, 0) == STATUS_OK) {
+        }
+    }
+
+    graph_reset_traffic(ctx->graph);
+    size_t n_edges = graph_edge_count(ctx->graph);
+    for (size_t e = 0; e < n_edges; e++) {
+        const Edge *edge = graph_edge(ctx->graph, (int)e);
+        if (edge && edge->blocked) {
+            graph_set_blocked(ctx->graph, (int)e, 0);
+        }
+    }
+
+    ctx->sim_cfg = ctx->base_sim_cfg;
+    ctx->active_pred = ctx->base_active_pred;
+    ctx->active_pred_name = ctx->base_active_pred_name;
+
+    Status st = create_sim_with_cfg(ctx, &ctx->sim_cfg);
+    if (st != STATUS_OK) return st;
+
+    st = init_registry_and_timetable(ctx);
+    if (st != STATUS_OK) return st;
+
+    ctx->running = 0;
+    ctx->last_rm_history_size = 0;
+    ctx->geometry_version++;
+    ctx->generation++;
+    return STATUS_OK;
+}
+
 static void *sim_thread_entry(void *arg) {
     AppCtx *ctx = (AppCtx *)arg;
     double last_wall = api_monotonic_s();
@@ -183,9 +290,7 @@ static void *sim_thread_entry(void *arg) {
                 }
                 if (target_min > cur_min) {
                     if (sim_run_until(ctx->sim, target_min) == STATUS_OK) {
-                        if (ctx->registry) {
-                            registry_sync(ctx->registry, ctx->sim);
-                        }
+                        app_sync_after_step(ctx);
                         ctx->generation++;
                     }
                 }
@@ -194,6 +299,67 @@ static void *sim_thread_entry(void *arg) {
                 }
             }
             app_unlock(ctx);
+        }
+    }
+    return NULL;
+}
+
+static void *poller_thread_entry(void *arg) {
+    AppCtx *ctx = (AppCtx *)arg;
+
+    for (;;) {
+        if (atomic_load(&ctx->stop_flag) != 0) break;
+
+        double sim_min = 360.0;
+        int rain = 0;
+        if (app_lock(ctx) == STATUS_OK) {
+            if (atomic_load(&ctx->stop_flag) != 0) {
+                app_unlock(ctx);
+                break;
+            }
+            if (ctx->sim) {
+                sim_min = sim_now_min(ctx->sim);
+                rain = sim_rain_active(ctx->sim);
+            }
+            app_unlock(ctx);
+        }
+
+        /* Execute traffic update WITHOUT holding mutex (may take seconds if live HTTP enabled) */
+        if (ctx->tu && ctx->poller_graph) {
+            double wall_s = api_monotonic_s();
+            (void)tu_update(ctx->tu, wall_s, sim_min, rain);
+
+            TrafficSource tsrc = tu_source(ctx->tu);
+            int tcalls = tu_call_count(ctx->tu);
+            size_t tlive = tu_live_corridor_count(ctx->tu);
+            const char *terr = tu_last_error(ctx->tu);
+
+            if (app_lock(ctx) == STATUS_OK) {
+                if (ctx->graph && ctx->poller_graph) {
+                    size_t ne = graph_edge_count(ctx->graph);
+                    size_t pne = graph_edge_count(ctx->poller_graph);
+                    size_t lim = (ne < pne) ? ne : pne;
+                    for (size_t e = 0; e < lim; e++) {
+                        const Edge *pe = graph_edge(ctx->poller_graph, (int)e);
+                        if (pe) {
+                            graph_set_traffic_factor(ctx->graph, (int)e, pe->traffic_factor);
+                        }
+                    }
+                }
+                ctx->traffic_source = tsrc;
+                ctx->traffic_calls = tcalls;
+                ctx->traffic_live_corridors = tlive;
+                snprintf(ctx->traffic_last_error, sizeof(ctx->traffic_last_error),
+                         "%s", terr ? terr : "");
+                ctx->generation++;
+                app_unlock(ctx);
+            }
+        }
+
+        /* Sleep ~5 seconds in 50 ms increments for fast shutdown */
+        for (int tick = 0; tick < 100; tick++) {
+            if (atomic_load(&ctx->stop_flag) != 0) return NULL;
+            api_sleep_ms(50);
         }
     }
     return NULL;
@@ -215,6 +381,8 @@ void app_options_default(AppOptions *opt) {
     opt->speed = 60.0;
     opt->paused = 0;
     opt->cors_origin = "http://localhost:5173";
+    opt->offline = 0;
+    opt->no_poll = 0;
 }
 
 Status app_create(const AppOptions *opt, AppCtx **out) {
@@ -237,6 +405,8 @@ Status app_create(const AppOptions *opt, AppCtx **out) {
         if (isfinite(opt->speed) && opt->speed > 0.0) local_opt.speed = opt->speed;
         local_opt.paused = opt->paused ? 1 : 0;
         if (opt->cors_origin && opt->cors_origin[0]) local_opt.cors_origin = opt->cors_origin;
+        local_opt.offline = opt->offline ? 1 : 0;
+        local_opt.no_poll = opt->no_poll ? 1 : 0;
     }
 
     if (local_opt.port <= 0 || local_opt.port > 65535 ||
@@ -260,13 +430,18 @@ Status app_create(const AppOptions *opt, AppCtx **out) {
     ctx->data_dir_copy = dup_str(data_dir);
     ctx->predictor_opt_copy = dup_str(local_opt.predictor);
     ctx->cors_origin_copy = dup_str(local_opt.cors_origin);
+
+    char eval_buf[512];
+    snprintf(eval_buf, sizeof(eval_buf), "%s/eval/summary.json", data_dir);
+    ctx->eval_path_copy = dup_str(eval_buf);
+
     ctx->opt.bind_addr = ctx->bind_addr_copy;
     ctx->opt.data_dir = ctx->data_dir_copy;
     ctx->opt.predictor = ctx->predictor_opt_copy;
     ctx->opt.cors_origin = ctx->cors_origin_copy;
 
     if (!ctx->bind_addr_copy || !ctx->data_dir_copy ||
-        !ctx->predictor_opt_copy || !ctx->cors_origin_copy) {
+        !ctx->predictor_opt_copy || !ctx->cors_origin_copy || !ctx->eval_path_copy) {
         app_destroy(ctx);
         return STATUS_ERR_NOMEM;
     }
@@ -281,6 +456,7 @@ Status app_create(const AppOptions *opt, AppCtx **out) {
     ctx->speed = local_opt.speed;
     ctx->geometry_version = 1;
     ctx->generation = 1;
+    ctx->traffic_source = TRAFFIC_SIMULATED;
 
     char cache_path[512];
     snprintf(cache_path, sizeof(cache_path), "%s/graph_cache.txt", data_dir);
@@ -289,6 +465,30 @@ Status app_create(const AppOptions *opt, AppCtx **out) {
         fprintf(stderr, "[app] graph_cache load failed (%s)\n", status_to_string(st));
         app_destroy(ctx);
         return (st == STATUS_OK) ? STATUS_ERR_NOT_FOUND : st;
+    }
+
+    /* Private graph copy + TrafficUpdater for background traffic poller */
+    st = graph_load(&ctx->poller_graph, cache_path);
+    if (st != STATUS_OK || !ctx->poller_graph) {
+        fprintf(stderr, "[app] poller graph load failed (%s)\n", status_to_string(st));
+        app_destroy(ctx);
+        return (st == STATUS_OK) ? STATUS_ERR_NOT_FOUND : st;
+    }
+
+    char corr_path[512];
+    snprintf(corr_path, sizeof(corr_path), "%s/corridors.txt", data_dir);
+    TrafficCorridor corridors[API_MAX_CORRIDORS];
+    size_t n_corridors = 0;
+    if (tu_load_corridors(corr_path, corridors, API_MAX_CORRIDORS, &n_corridors) != STATUS_OK) {
+        n_corridors = 0;
+    }
+    TrafficConfig tcfg;
+    memset(&tcfg, 0, sizeof(tcfg));
+    tcfg.offline = (local_opt.offline || local_opt.no_poll) ? 1 : 0;
+    ctx->tu = tu_create(ctx->poller_graph, corridors, n_corridors, &tcfg);
+    if (!ctx->tu) {
+        app_destroy(ctx);
+        return STATUS_ERR_NOMEM;
     }
 
     st = demand_stops_from_graph_anchored(ctx->graph, local_opt.n_stops, local_opt.seed,
@@ -353,6 +553,7 @@ Status app_create(const AppOptions *opt, AppCtx **out) {
     snprintf(ml_path, sizeof(ml_path), "%s/ml_metrics.json", data_dir);
     ctx->ml_metrics_json = read_file_text_binary(ml_path);
 
+    /* Poller manages graph traffic updates, anomaly_detect enabled */
     sim_config_default(&ctx->sim_cfg);
     ctx->sim_cfg.seed = local_opt.seed;
     ctx->sim_cfg.n_buses = (int)local_opt.n_buses;
@@ -361,32 +562,14 @@ Status app_create(const AppOptions *opt, AppCtx **out) {
     ctx->sim_cfg.predictor = ctx->active_pred;
     ctx->sim_cfg.initial_spacing = SIM_SPACING_BY_TIME;
     ctx->sim_cfg.reassign_mode = SIM_REASSIGN_DRAIN;
-    ctx->sim_cfg.apply_traffic = 1;
+    ctx->sim_cfg.apply_traffic = 0;
+    ctx->sim_cfg.anomaly_detect = 1;
 
-    double *prop_weights = NULL;
-    if (ctx->sim_cfg.policy == SIM_POLICY_FIXED_PROPORTIONAL) {
-        size_t nr = network_route_count(ctx->net);
-        prop_weights = (double *)calloc(nr, sizeof(double));
-        if (!prop_weights) {
-            app_destroy(ctx);
-            return STATUS_ERR_NOMEM;
-        }
-        int start_hr = (int)floor(ctx->sim_cfg.start_min / 60.0);
-        if (start_hr < 0) start_hr = 0;
-        if (start_hr > 23) start_hr = 23;
-        st = network_route_demands(ctx->net, ctx->active_pred, start_hr, ctx->sim_cfg.day_type,
-                                   ctx->sim_cfg.rain, NULL, 0, prop_weights);
-        if (st != STATUS_OK) {
-            free(prop_weights);
-            app_destroy(ctx);
-            return st;
-        }
-        ctx->sim_cfg.prop_weights = prop_weights;
-    }
+    ctx->base_sim_cfg = ctx->sim_cfg;
+    ctx->base_active_pred = ctx->active_pred;
+    ctx->base_active_pred_name = ctx->active_pred_name;
 
-    st = sim_create(ctx->net, &ctx->sim_cfg, &ctx->sim);
-    ctx->sim_cfg.prop_weights = NULL;
-    free(prop_weights);
+    st = create_sim_with_cfg(ctx, &ctx->sim_cfg);
     if (st != STATUS_OK || !ctx->sim) {
         fprintf(stderr, "[app] sim_create failed (%s)\n", status_to_string(st));
         app_destroy(ctx);
@@ -418,20 +601,22 @@ Status app_create_from_parts(Graph *g, NetworkModel *net, const DemandStop *stop
     ctx->opt.n_routes = network_route_count(net);
     ctx->opt.paused = 1;
     ctx->opt.predictor = "oracle";
+    ctx->opt.offline = 1;
     ctx->bind_addr_copy = dup_str("127.0.0.1");
     ctx->data_dir_copy = dup_str("data");
     ctx->predictor_opt_copy = dup_str("oracle");
     ctx->cors_origin_copy = dup_str("http://localhost:5173");
+    ctx->eval_path_copy = dup_str("data/eval/summary.json");
     ctx->stops = (DemandStop *)malloc(n * sizeof(DemandStop));
     ctx->mutex = api_mutex_create();
 
     if (!ctx->bind_addr_copy || !ctx->data_dir_copy || !ctx->predictor_opt_copy ||
-        !ctx->cors_origin_copy || !ctx->stops || !ctx->mutex) {
-        /* Do not free caller g/net before ownership is finalized */
+        !ctx->cors_origin_copy || !ctx->eval_path_copy || !ctx->stops || !ctx->mutex) {
         free(ctx->bind_addr_copy);
         free(ctx->data_dir_copy);
         free(ctx->predictor_opt_copy);
         free(ctx->cors_origin_copy);
+        free(ctx->eval_path_copy);
         free(ctx->stops);
         api_mutex_destroy(ctx->mutex);
         free(ctx);
@@ -450,8 +635,7 @@ Status app_create_from_parts(Graph *g, NetworkModel *net, const DemandStop *stop
     ctx->speed = 60.0;
     ctx->geometry_version = 1;
     ctx->generation = 1;
-    ctx->active_pred = NULL;
-    ctx->active_pred_name = "oracle";
+    ctx->traffic_source = TRAFFIC_SIMULATED;
 
     if (cfg) {
         ctx->sim_cfg = *cfg;
@@ -460,6 +644,13 @@ Status app_create_from_parts(Graph *g, NetworkModel *net, const DemandStop *stop
         ctx->sim_cfg.initial_spacing = SIM_SPACING_BY_TIME;
         ctx->sim_cfg.reassign_mode = SIM_REASSIGN_DRAIN;
     }
+    ctx->active_pred = ctx->sim_cfg.predictor;
+    ctx->active_pred_name = ctx->active_pred ? dp_name(ctx->active_pred) : "oracle";
+    ctx->base_sim_cfg = ctx->sim_cfg;
+    ctx->base_sim_cfg.prop_weights = NULL;
+    ctx->base_active_pred = ctx->active_pred;
+    ctx->base_active_pred_name = ctx->active_pred_name;
+
     ctx->opt.seed = ctx->sim_cfg.seed;
     ctx->opt.n_buses = (ctx->sim_cfg.n_buses > 0) ? (size_t)ctx->sim_cfg.n_buses : 0U;
     ctx->opt.n_reserve = (ctx->sim_cfg.n_reserve > 0) ? (size_t)ctx->sim_cfg.n_reserve : 0U;
@@ -472,13 +663,13 @@ Status app_create_from_parts(Graph *g, NetworkModel *net, const DemandStop *stop
         free(ctx->data_dir_copy);
         free(ctx->predictor_opt_copy);
         free(ctx->cors_origin_copy);
+        free(ctx->eval_path_copy);
         free(ctx->stops);
         api_mutex_destroy(ctx->mutex);
         free(ctx);
         return (st == STATUS_OK) ? STATUS_ERR_INVALID : st;
     }
 
-    /* Set borrowed refs transiently; only claim ownership once registry succeeds */
     ctx->graph = g;
     ctx->net = net;
     st = init_registry_and_timetable(ctx);
@@ -499,6 +690,11 @@ void app_destroy(AppCtx *ctx) {
     if (!ctx) return;
     app_stop_thread(ctx);
 
+    tu_destroy(ctx->tu);
+    ctx->tu = NULL;
+    graph_destroy(ctx->poller_graph);
+    ctx->poller_graph = NULL;
+
     registry_destroy(ctx->registry);
     ctx->registry = NULL;
     sim_destroy(ctx->sim);
@@ -517,6 +713,8 @@ void app_destroy(AppCtx *ctx) {
     ctx->active_pred = NULL;
 
     free(ctx->ml_metrics_json);
+    free(ctx->last_optimize_json);
+    free(ctx->eval_path_copy);
     free(ctx->bind_addr_copy);
     free(ctx->data_dir_copy);
     free(ctx->predictor_opt_copy);
@@ -538,26 +736,45 @@ Status app_unlock(AppCtx *ctx) {
 
 Status app_start_thread(AppCtx *ctx) {
     if (!ctx) return STATUS_ERR_NULL;
-    if (ctx->thread_running) return STATUS_OK;
     atomic_store(&ctx->stop_flag, 0);
-    Status st = api_thread_create(sim_thread_entry, ctx, &ctx->sim_thread);
-    if (st == STATUS_OK) {
+    if (!ctx->thread_running) {
+        Status st = api_thread_create(sim_thread_entry, ctx, &ctx->sim_thread);
+        if (st != STATUS_OK) return st;
         ctx->thread_running = 1;
     }
-    return st;
+    if (ctx->tu && ctx->poller_graph && !ctx->poller_running) {
+        Status st = api_thread_create(poller_thread_entry, ctx, &ctx->poller_thread);
+        if (st != STATUS_OK) return st;
+        ctx->poller_running = 1;
+    }
+    return STATUS_OK;
 }
 
 Status app_stop_thread(AppCtx *ctx) {
     if (!ctx) return STATUS_OK;
-    if (!ctx->thread_running) return STATUS_OK;
     atomic_store(&ctx->stop_flag, 1);
-    Status st = api_thread_join(ctx->sim_thread);
-    ctx->sim_thread = NULL;
-    ctx->thread_running = 0;
+    Status st = STATUS_OK;
+    if (ctx->thread_running) {
+        Status s1 = api_thread_join(ctx->sim_thread);
+        ctx->sim_thread = NULL;
+        ctx->thread_running = 0;
+        if (s1 != STATUS_OK) st = s1;
+    }
+    if (ctx->poller_running) {
+        Status s2 = api_thread_join(ctx->poller_thread);
+        ctx->poller_thread = NULL;
+        ctx->poller_running = 0;
+        if (s2 != STATUS_OK) st = s2;
+    }
     return st;
 }
 
 Status app_sim_control(AppCtx *ctx, const char *action, int has_speed, double speed) {
+    return app_sim_control_ext(ctx, action, has_speed, speed, 0, 0.0);
+}
+
+Status app_sim_control_ext(AppCtx *ctx, const char *action, int has_speed, double speed,
+                           int has_time_min, double time_min) {
     if (!ctx) return STATUS_ERR_NULL;
     if (!action && !has_speed) return STATUS_ERR_INVALID;
 
@@ -574,6 +791,28 @@ Status app_sim_control(AppCtx *ctx, const char *action, int has_speed, double sp
             ctx->running = 0;
         } else if (strcmp(action, "speed") == 0) {
             if (!has_speed) return STATUS_ERR_INVALID;
+        } else if (strcmp(action, "reset") == 0) {
+            Status st = app_reset_locked(ctx);
+            if (st != STATUS_OK) return st;
+        } else if (strcmp(action, "seek") == 0) {
+            if (!has_time_min || !isfinite(time_min)) return STATUS_ERR_INVALID;
+            double start_m = ctx->base_sim_cfg.start_min;
+            double end_m = ctx->base_sim_cfg.end_min;
+            double slice_m = ctx->base_sim_cfg.slice_min;
+            if (time_min < start_m - 1e-9 || time_min > end_m + 1e-9) {
+                return STATUS_ERR_INVALID;
+            }
+            double rem = fabs(time_min - round(time_min / slice_m) * slice_m);
+            if (rem > 1e-6) {
+                return STATUS_ERR_INVALID;
+            }
+            Status st = app_reset_locked(ctx);
+            if (st != STATUS_OK) return st;
+            if (time_min > sim_now_min(ctx->sim)) {
+                st = sim_run_until(ctx->sim, time_min);
+                if (st != STATUS_OK) return st;
+                app_sync_after_step(ctx);
+            }
         } else {
             return STATUS_ERR_INVALID;
         }
@@ -586,6 +825,135 @@ Status app_sim_control(AppCtx *ctx, const char *action, int has_speed, double sp
     return STATUS_OK;
 }
 
+Status app_schedule_scenario(AppCtx *ctx, SimScenarioKind kind, int arg, double *time_min_out) {
+    if (!ctx || !ctx->sim) return STATUS_ERR_NULL;
+    double now = sim_now_min(ctx->sim);
+    double slice = ctx->sim_cfg.slice_min;
+    if (slice <= 0.0) return STATUS_ERR_INVALID;
+
+    double k = ceil((now - 1e-9) / slice);
+    double t_min = k * slice;
+    if (t_min < now) {
+        t_min = (floor(now / slice) + 1.0) * slice;
+    }
+    if (t_min >= ctx->sim_cfg.end_min - 1e-9) {
+        return STATUS_ERR_EMPTY;
+    }
+
+    SimScenario sc;
+    sc.time_min = t_min;
+    sc.kind = kind;
+    sc.arg = arg;
+    Status st = sim_schedule(ctx->sim, &sc);
+    if (st != STATUS_OK) return st;
+
+    app_sync_after_step(ctx);
+    ctx->generation++;
+    if (time_min_out) *time_min_out = t_min;
+    return STATUS_OK;
+}
+
+Status app_set_allocation(AppCtx *ctx, SimPolicy policy, const char *pred_name,
+                          int force, size_t *moves_applied_out) {
+    if (!ctx || !ctx->sim) return STATUS_ERR_NULL;
+
+    const DemandPredictor *pred = ctx->active_pred;
+    const char *eff_name = ctx->active_pred_name ? ctx->active_pred_name : "oracle";
+
+    if (pred_name != NULL) {
+        if (strcmp(pred_name, "oracle") == 0) {
+            pred = NULL;
+            eff_name = "oracle";
+        } else if (strcmp(pred_name, "ma") == 0) {
+            if (!ctx->pred_ma) return STATUS_ERR_INVALID;
+            pred = ctx->pred_ma;
+            eff_name = "ma";
+        } else if (strcmp(pred_name, "rf") == 0) {
+            if (!ctx->pred_rf) return STATUS_ERR_INVALID;
+            pred = ctx->pred_rf;
+            eff_name = "rf";
+        } else {
+            return STATUS_ERR_INVALID;
+        }
+    }
+
+    Status st = sim_set_policy(ctx->sim, policy, pred);
+    if (st != STATUS_OK) return st;
+
+    ctx->sim_cfg.policy = policy;
+    ctx->active_pred = pred;
+    ctx->active_pred_name = eff_name;
+
+    size_t moves = 0;
+    if (force) {
+        st = sim_force_decision(ctx->sim, &moves);
+        if (st != STATUS_OK) return st;
+    }
+    if (moves_applied_out) *moves_applied_out = moves;
+
+    app_sync_after_step(ctx);
+    ctx->generation++;
+    return STATUS_OK;
+}
+
+Status app_manual_move(AppCtx *ctx, int bus_id, int to_route) {
+    if (!ctx || !ctx->sim) return STATUS_ERR_NULL;
+    Status st = sim_request_move(ctx->sim, bus_id, to_route);
+    if (st != STATUS_OK) return st;
+    app_sync_after_step(ctx);
+    ctx->generation++;
+    return STATUS_OK;
+}
+
+Status app_inject(AppCtx *ctx, size_t stop_idx, int count, int ride_stops, double *time_s_out) {
+    if (!ctx || !ctx->sim) return STATUS_ERR_NULL;
+    if (count < 1 || count > 500 || ride_stops < 0) return STATUS_ERR_INVALID;
+    double time_s = sim_now_min(ctx->sim) * 60.0;
+    Status st = sim_inject_arrivals(ctx->sim, stop_idx, time_s, count, ride_stops);
+    if (st != STATUS_OK) return st;
+    /* Flush stop at current timestamp so queue length updates immediately */
+    (void)sim_queue_length(ctx->sim, stop_idx);
+    app_sync_after_step(ctx);
+    ctx->generation++;
+    if (time_s_out) *time_s_out = time_s;
+    return STATUS_OK;
+}
+
+Status app_undo(AppCtx *ctx, char *desc_buf, size_t desc_cap, size_t *history_size_out) {
+    if (!ctx || !ctx->net) return STATUS_ERR_NULL;
+    RouteManager *rm = network_route_manager(ctx->net);
+    if (!rm) return STATUS_ERR_NULL;
+
+    Status st = rm_undo(rm, desc_buf, desc_cap);
+    if (st != STATUS_OK) return st;
+
+    ctx->last_rm_history_size = rm_history_size(rm);
+    app_bump_geometry_version(ctx);
+    if (ctx->registry && ctx->sim) {
+        registry_sync(ctx->registry, ctx->sim);
+    }
+    if (history_size_out) *history_size_out = ctx->last_rm_history_size;
+    return STATUS_OK;
+}
+
+Status app_set_last_optimize(AppCtx *ctx, const char *json_str) {
+    if (!ctx || !json_str) return STATUS_ERR_NULL;
+    char *copy = dup_str(json_str);
+    if (!copy) return STATUS_ERR_NOMEM;
+    free(ctx->last_optimize_json);
+    ctx->last_optimize_json = copy;
+    return STATUS_OK;
+}
+
+Status app_set_eval_path_for_test(AppCtx *ctx, const char *path) {
+    if (!ctx || !path) return STATUS_ERR_NULL;
+    char *copy = dup_str(path);
+    if (!copy) return STATUS_ERR_NOMEM;
+    free(ctx->eval_path_copy);
+    ctx->eval_path_copy = copy;
+    return STATUS_OK;
+}
+
 void app_bump_geometry_version(AppCtx *ctx) {
     if (!ctx) return;
     ctx->geometry_version++;
@@ -593,6 +961,7 @@ void app_bump_geometry_version(AppCtx *ctx) {
 }
 
 const AppOptions *app_options(const AppCtx *ctx) { return ctx ? &ctx->opt : NULL; }
+Graph *app_graph_mut(AppCtx *ctx) { return ctx ? ctx->graph : NULL; }
 const Graph *app_graph(const AppCtx *ctx) { return ctx ? ctx->graph : NULL; }
 const NetworkModel *app_network(const AppCtx *ctx) { return ctx ? ctx->net : NULL; }
 const DemandStop *app_stops(const AppCtx *ctx, size_t *n_out) {
@@ -611,6 +980,17 @@ const char *app_active_predictor_name(const AppCtx *ctx) {
     return (ctx && ctx->active_pred_name) ? ctx->active_pred_name : "oracle";
 }
 const char *app_ml_metrics_json(const AppCtx *ctx) { return ctx ? ctx->ml_metrics_json : NULL; }
+const char *app_last_optimize_json(const AppCtx *ctx) { return ctx ? ctx->last_optimize_json : NULL; }
+const char *app_eval_path(const AppCtx *ctx) { return ctx ? ctx->eval_path_copy : NULL; }
+const char *app_traffic_source_str(const AppCtx *ctx) {
+    if (!ctx) return "simulated";
+    return (ctx->traffic_source == TRAFFIC_LIVE) ? "live" : "simulated";
+}
+int app_traffic_calls(const AppCtx *ctx) { return ctx ? ctx->traffic_calls : 0; }
+size_t app_traffic_live_corridors(const AppCtx *ctx) { return ctx ? ctx->traffic_live_corridors : 0U; }
+const char *app_traffic_last_error(const AppCtx *ctx) {
+    return ctx ? ctx->traffic_last_error : "";
+}
 int app_is_running(const AppCtx *ctx) { return ctx ? ctx->running : 0; }
 double app_speed(const AppCtx *ctx) { return ctx ? ctx->speed : 0.0; }
 uint64_t app_geometry_version(const AppCtx *ctx) { return ctx ? ctx->geometry_version : 0ULL; }
@@ -618,4 +998,3 @@ uint64_t app_generation(const AppCtx *ctx) { return ctx ? ctx->generation : 0ULL
 const char *app_cors_origin(const AppCtx *ctx) {
     return (ctx && ctx->opt.cors_origin) ? ctx->opt.cors_origin : "http://localhost:5173";
 }
-

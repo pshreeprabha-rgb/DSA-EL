@@ -142,6 +142,39 @@ static int read_request_body(struct mg_connection *conn, const struct mg_request
     return 1;
 }
 
+static int handle_post_with_app(struct mg_connection *conn, const struct mg_request_info *ri,
+                                AppCtx *app, const char *origin,
+                                Status (*fn)(AppCtx *, const char *, char **)) {
+    char *body = NULL;
+    int too_large = 0;
+    int rrc = read_request_body(conn, ri, &body, &too_large);
+    if (too_large) {
+        return send_error_response(conn, 413, origin, NULL,
+                                   "payload_too_large", "request body exceeds 64 KB limit");
+    }
+    if (rrc < 0 || !body) {
+        return send_error_response(conn, 500, origin, NULL,
+                                   "internal", "failed reading request body");
+    }
+
+    char *resp = NULL;
+    if (app_lock(app) != STATUS_OK) {
+        free(body);
+        return send_error_response(conn, 500, origin, NULL, "internal", "lock failed");
+    }
+    Status st = fn(app, body, &resp);
+    app_unlock(app);
+    free(body);
+
+    if (st != STATUS_OK || !resp) {
+        free(resp);
+        return send_status_error(conn, st, origin, "action failed");
+    }
+    send_json_response(conn, 200, origin, NULL, resp);
+    free(resp);
+    return 200;
+}
+
 static int api_request_handler(struct mg_connection *conn, void *cbdata) {
     ApiHttpServer *srv = (ApiHttpServer *)cbdata;
     if (!srv || !srv->app || !conn) return 500;
@@ -162,7 +195,7 @@ static int api_request_handler(struct mg_connection *conn, void *cbdata) {
     int is_get = (strcmp(method, "GET") == 0);
     int is_post = (strcmp(method, "POST") == 0);
 
-    /* Route POST endpoint */
+    /* Route POST endpoints */
     if (strcmp(uri, "/api/sim/control") == 0) {
         if (!is_post) {
             return send_error_response(conn, 405, origin, "POST, OPTIONS",
@@ -184,8 +217,11 @@ static int api_request_handler(struct mg_connection *conn, void *cbdata) {
         int has_action = 0;
         int has_speed = 0;
         double speed = 0.0;
-        Status st = api_json_sim_control_parse(body, action, sizeof(action),
-                                                &has_action, &has_speed, &speed);
+        int has_time_min = 0;
+        double time_min = 0.0;
+        Status st = api_json_sim_control_parse_ext(body, action, sizeof(action),
+                                                    &has_action, &has_speed, &speed,
+                                                    &has_time_min, &time_min);
         free(body);
         if (st != STATUS_OK) {
             return send_status_error(conn, st, origin, "invalid control payload");
@@ -195,7 +231,8 @@ static int api_request_handler(struct mg_connection *conn, void *cbdata) {
         if (app_lock(app) != STATUS_OK) {
             return send_error_response(conn, 500, origin, NULL, "internal", "lock failed");
         }
-        st = app_sim_control(app, has_action ? action : NULL, has_speed, speed);
+        st = app_sim_control_ext(app, has_action ? action : NULL,
+                                 has_speed, speed, has_time_min, time_min);
         if (st == STATUS_OK) {
             st = api_json_sim_control_ok(app, &resp);
         }
@@ -208,6 +245,42 @@ static int api_request_handler(struct mg_connection *conn, void *cbdata) {
         send_json_response(conn, 200, origin, NULL, resp);
         free(resp);
         return 200;
+    }
+
+    if (strcmp(uri, "/api/scenario") == 0) {
+        if (!is_post) {
+            return send_error_response(conn, 405, origin, "POST, OPTIONS",
+                                       "method_not_allowed", "POST required");
+        }
+        return handle_post_with_app(conn, ri, app, origin, api_json_handle_scenario);
+    }
+    if (strcmp(uri, "/api/allocate") == 0) {
+        if (!is_post) {
+            return send_error_response(conn, 405, origin, "POST, OPTIONS",
+                                       "method_not_allowed", "POST required");
+        }
+        return handle_post_with_app(conn, ri, app, origin, api_json_handle_allocate);
+    }
+    if (strcmp(uri, "/api/inject") == 0) {
+        if (!is_post) {
+            return send_error_response(conn, 405, origin, "POST, OPTIONS",
+                                       "method_not_allowed", "POST required");
+        }
+        return handle_post_with_app(conn, ri, app, origin, api_json_handle_inject);
+    }
+    if (strcmp(uri, "/api/route/optimize") == 0) {
+        if (!is_post) {
+            return send_error_response(conn, 405, origin, "POST, OPTIONS",
+                                       "method_not_allowed", "POST required");
+        }
+        return handle_post_with_app(conn, ri, app, origin, api_json_handle_route_optimize);
+    }
+    if (strcmp(uri, "/api/undo") == 0) {
+        if (!is_post) {
+            return send_error_response(conn, 405, origin, "POST, OPTIONS",
+                                       "method_not_allowed", "POST required");
+        }
+        return handle_post_with_app(conn, ri, app, origin, api_json_handle_undo);
     }
 
     /* Check GET endpoints */
@@ -226,7 +299,8 @@ static int api_request_handler(struct mg_connection *conn, void *cbdata) {
         EP_FORECAST,
         EP_METRICS,
         EP_ALERTS,
-        EP_HISTORY
+        EP_HISTORY,
+        EP_EVAL
     } EndpointKind;
 
     EndpointKind ep = EP_NONE;
@@ -246,6 +320,7 @@ static int api_request_handler(struct mg_connection *conn, void *cbdata) {
     else if (strcmp(uri, "/api/metrics") == 0) ep = EP_METRICS;
     else if (strcmp(uri, "/api/alerts") == 0) ep = EP_ALERTS;
     else if (strcmp(uri, "/api/history") == 0) ep = EP_HISTORY;
+    else if (strcmp(uri, "/api/eval") == 0) ep = EP_EVAL;
 
     if (ep == EP_NONE) {
         return send_error_response(conn, 404, origin, NULL,
@@ -321,6 +396,7 @@ static int api_request_handler(struct mg_connection *conn, void *cbdata) {
         case EP_METRICS:  st = api_json_metrics(app, &resp); break;
         case EP_ALERTS:   st = api_json_alerts(app, &resp); break;
         case EP_HISTORY:  st = api_json_history(app, &resp); break;
+        case EP_EVAL:     st = api_json_eval(app, &resp); break;
         case EP_NONE:
         default:          st = STATUS_ERR_NOT_FOUND; break;
     }

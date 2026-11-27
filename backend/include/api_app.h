@@ -3,7 +3,7 @@
 
 /**
  * @file api_app.h
- * @brief Application context, lifecycle management, and simulation background thread.
+ * @brief Application context, lifecycle management, simulation thread, and traffic poller thread.
  */
 
 #include <stddef.h>
@@ -36,100 +36,86 @@ typedef struct AppOptions {
     double speed;            /* simulated seconds per wall second (1..3600) */
     int paused;              /* 1 = start paused, 0 = start running */
     const char *cors_origin; /* CORS Access-Control-Allow-Origin */
+    int offline;             /* 1 = disable live TomTom API calls */
+    int no_poll;             /* 1 = disable live polling */
 } AppOptions;
 
-/**
- * @brief Populates AppOptions with server defaults (--port 8080, --seed 42, etc.).
- * @param opt Destination AppOptions pointer (NULL-safe).
- * @note Complexity: O(1).
- */
 void app_options_default(AppOptions *opt);
-
-/**
- * @brief Builds a full AppCtx from cached OSM graph, optional predictors, network, sim, and registry.
- * @param opt Configuration options (NULL uses defaults).
- * @param out Output pointer receiving allocated AppCtx (non-NULL).
- * @return STATUS_OK on success, STATUS_ERR_NULL/INVALID/NOT_FOUND/NOMEM on error.
- * @note Ownership: Caller owns *out and must destroy with app_destroy(). Complexity: O(S^2 log V + B).
- */
 Status app_create(const AppOptions *opt, AppCtx **out);
-
-/**
- * @brief Builds an AppCtx from caller-supplied graph, network, stops, and SimConfig (for unit tests).
- *
- * @param g Graph pointer (owned by AppCtx on STATUS_OK; borrowed/untouched on error).
- * @param net NetworkModel pointer with matrix built (owned by AppCtx on STATUS_OK; untouched on error).
- * @param stops Array of n DemandStops (copied internally; caller keeps ownership).
- * @param n Number of stops (>= 2).
- * @param cfg SimConfig (NULL uses server defaults).
- * @param out Output pointer receiving allocated AppCtx (non-NULL).
- * @return STATUS_OK on success, STATUS_ERR_NULL/INVALID/NOMEM on error.
- * @note Ownership: Takes ownership of g and net ONLY when returning STATUS_OK. Complexity: O(S + B + T log T).
- */
 Status app_create_from_parts(Graph *g, NetworkModel *net, const DemandStop *stops, size_t n,
                              const SimConfig *cfg, AppCtx **out);
-
-/**
- * @brief Stops any running simulation thread and frees all resources owned by AppCtx (NULL-safe).
- * @param ctx Application context.
- * @note Complexity: O(n).
- */
 void app_destroy(AppCtx *ctx);
 
-/**
- * @brief Acquires the application mutex protecting sim, network, graph, and registry.
- * @param ctx Application context (non-NULL).
- * @return STATUS_OK on success, or error code.
- * @note Complexity: O(1).
- */
 Status app_lock(AppCtx *ctx);
-
-/**
- * @brief Releases the application mutex.
- * @param ctx Application context (non-NULL).
- * @return STATUS_OK on success, or error code.
- * @note Complexity: O(1).
- */
 Status app_unlock(AppCtx *ctx);
-
-/**
- * @brief Starts the background simulation loop thread (idempotent if already started).
- * @param ctx Application context (non-NULL).
- * @return STATUS_OK on success, or error code.
- * @note Complexity: O(1).
- */
 Status app_start_thread(AppCtx *ctx);
-
-/**
- * @brief Signals the simulation loop thread to stop and joins it (idempotent).
- * @param ctx Application context (NULL-safe).
- * @return STATUS_OK on success, or error code.
- * @note Complexity: O(1) wait up to one sleep interval.
- */
 Status app_stop_thread(AppCtx *ctx);
 
-/**
- * @brief Applies a simulation control action ("start", "pause", "resume", "speed") and/or speed update.
- *        Caller should hold app_lock(ctx) or call before starting HTTP workers.
- *
- * @param ctx Application context (non-NULL).
- * @param action Optional action string ("start", "pause", "resume", "speed"), or NULL if only speed set.
- * @param has_speed Non-zero if speed argument is provided.
- * @param speed New speed in simulated seconds per wall second (must be in [1, 3600] if has_speed).
- * @return STATUS_OK on success, STATUS_ERR_NULL/INVALID on bad arguments.
- * @note Complexity: O(1).
- */
 Status app_sim_control(AppCtx *ctx, const char *action, int has_speed, double speed);
+Status app_sim_control_ext(AppCtx *ctx, const char *action, int has_speed, double speed,
+                           int has_time_min, double time_min);
 
 /**
- * @brief Increments geometry_version and generation counters (caller holds lock).
+ * @brief Synchronizes Registry state and checks RouteManager history size to bump geometry_version.
+ *        Caller holds app_lock(ctx).
  * @param ctx Application context (NULL-safe).
- * @note Complexity: O(1).
+ * @note Complexity: O(B * children).
  */
+void app_sync_after_step(AppCtx *ctx);
+
+/**
+ * @brief Schedules a scenario at the next slice boundary (caller holds app_lock).
+ * @return STATUS_OK, STATUS_ERR_NULL, STATUS_ERR_INVALID, or STATUS_ERR_EMPTY (past end_min).
+ * @note Complexity: O(log E).
+ */
+Status app_schedule_scenario(AppCtx *ctx, SimScenarioKind kind, int arg, double *time_min_out);
+
+/**
+ * @brief Updates allocation policy/predictor and optionally forces a reallocation decision (caller holds lock).
+ * @return STATUS_OK on success, STATUS_ERR_INVALID if unknown/unloaded predictor or invalid force.
+ * @note Complexity: O(B + R log R + B^2).
+ */
+Status app_set_allocation(AppCtx *ctx, SimPolicy policy, const char *pred_name,
+                          int force, size_t *moves_applied_out);
+
+/**
+ * @brief Requests a manual bus reassignment (caller holds lock).
+ * @return STATUS_OK on success, STATUS_ERR_INVALID if request cannot be queued.
+ * @note Complexity: O(B).
+ */
+Status app_manual_move(AppCtx *ctx, int bus_id, int to_route);
+
+/**
+ * @brief Injects passenger arrivals at current sim time (caller holds lock).
+ * @return STATUS_OK on success, STATUS_ERR_INVALID on invalid stop/count/ride.
+ * @note Complexity: O(count).
+ */
+Status app_inject(AppCtx *ctx, size_t stop_idx, int count, int ride_stops, double *time_s_out);
+
+/**
+ * @brief Undoes the most recent RouteManager ChangeSet (caller holds lock).
+ * @return STATUS_OK on success, STATUS_ERR_EMPTY when history is empty.
+ * @note Complexity: O(changed_routes + changed_edges).
+ */
+Status app_undo(AppCtx *ctx, char *desc_buf, size_t desc_cap, size_t *history_size_out);
+
+/**
+ * @brief Stores a copy of the latest /api/route/optimize response JSON (caller holds lock).
+ * @note Complexity: O(strlen(json_str)).
+ */
+Status app_set_last_optimize(AppCtx *ctx, const char *json_str);
+
+/**
+ * @brief Overrides the eval summary file path for unit tests (caller owns setup, not exposed over HTTP).
+ * @note Complexity: O(strlen(path)).
+ */
+Status app_set_eval_path_for_test(AppCtx *ctx, const char *path);
+
 void app_bump_geometry_version(AppCtx *ctx);
 
-/* Read/lock-protected accessors */
+/* Lock-protected accessors */
 const AppOptions *app_options(const AppCtx *ctx);
+Graph *app_graph_mut(AppCtx *ctx);
 const Graph *app_graph(const AppCtx *ctx);
 const NetworkModel *app_network(const AppCtx *ctx);
 const DemandStop *app_stops(const AppCtx *ctx, size_t *n_out);
@@ -143,6 +129,12 @@ const DemandPredictor *app_predictor_rf(const AppCtx *ctx);
 const DemandPredictor *app_active_predictor(const AppCtx *ctx);
 const char *app_active_predictor_name(const AppCtx *ctx);
 const char *app_ml_metrics_json(const AppCtx *ctx);
+const char *app_last_optimize_json(const AppCtx *ctx);
+const char *app_eval_path(const AppCtx *ctx);
+const char *app_traffic_source_str(const AppCtx *ctx);
+int app_traffic_calls(const AppCtx *ctx);
+size_t app_traffic_live_corridors(const AppCtx *ctx);
+const char *app_traffic_last_error(const AppCtx *ctx);
 int app_is_running(const AppCtx *ctx);
 double app_speed(const AppCtx *ctx);
 uint64_t app_geometry_version(const AppCtx *ctx);
@@ -154,4 +146,3 @@ const char *app_cors_origin(const AppCtx *ctx);
 #endif
 
 #endif /* TRANSPORT_API_APP_H */
-

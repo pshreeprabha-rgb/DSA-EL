@@ -1,0 +1,877 @@
+{
+    "clock_min": 501.2112119999074,
+    "clock": "08:21",
+    "running": false,
+    "finished": false,
+    "speed": 3600,
+    "day_type": "weekday",
+    "rain": false,
+    "policy": "fixed_equal",
+    "traffic_source": "simulated",
+    "geometry_version": 3,
+    "history_size": 1,
+    "buses": [
+        {
+            "id": 0,
+            "state": "running",
+            "route": 0,
+            "stop_idx": 46,
+            "load": 21,
+            "pending_route": 1,
+            "motion": {
+                "moving": true,
+                "leg_route": 0,
+                "leg_index": 9,
+                "from_stop": 31,
+                "to_stop": 46,
+                "depart_s": 29249.00505064207,
+                "arrive_s": 30980.932929099778
+            }
+        },
+        {
+            "id": 1,
+            "state": "running",
+            "route": 0,
+            "stop_idx": 46,
+            "load": 22,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 0,
+                "leg_index": 9,
+                "from_stop": 31,
+                "to_stop": 46,
+                "depart_s": 28609.46577386534,
+                "arrive_s": 30196.9562239337
+            }
+        },
+        {
+            "id": 2,
+            "state": "running",
+            "route": 0,
+            "stop_idx": 21,
+            "load": 9,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 0,
+                "leg_index": 0,
+                "from_stop": 46,
+                "to_stop": 21,
+                "depart_s": 29079.283902997464,
+                "arrive_s": 30262.5728679206
+            }
+        },
+        {
+            "id": 3,
+            "state": "running",
+            "route": 0,
+            "stop_idx": 40,
+            "load": 12,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 0,
+                "leg_index": 3,
+                "from_stop": 42,
+                "to_stop": 40,
+                "depart_s": 30049.76169287248,
+                "arrive_s": 30188.87960747688
+            }
+        },
+        {
+            "id": 4,
+            "state": "running",
+            "route": 0,
+            "stop_idx": 43,
+            "load": 7,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 0,
+                "leg_index": 5,
+                "from_stop": 28,
+                "to_stop": 43,
+                "depart_s": 29696.547777755062,
+                "arrive_s": 30074.22586887281
+            }
+        },
+        {
+            "id": 5,
+            "state": "running",
+            "route": 0,
+            "stop_idx": 31,
+            "load": 17,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 0,
+                "leg_index": 8,
+                "from_stop": 45,
+                "to_stop": 31,
+                "depart_s": 30050.21324978003,
+                "arrive_s": 30298.543373412358
+            }
+        },
+        {
+            "id": 6,
+            "state": "running",
+            "route": 1,
+            "stop_idx": 13,
+            "load": 9,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 1,
+                "leg_index": 4,
+                "from_stop": 19,
+                "to_stop": 13,
+                "depart_s": 29677.957715462384,
+                "arrive_s": 30149.500245528514
+            }
+        },
+        {
+            "id": 7,
+            "state": "running",
+            "route": 1,
+            "stop_idx": 36,
+            "load": 16,
+            "pending_route": -2,
+            "motion": {
+                "moving": false,
+                "leg_route": 1,
+                "leg_index": -1,
+                "from_stop": 36,
+                "to_stop": 36,
+                "depart_s": 30076.65835386303,
+                "arrive_s": 30076.65835386303
+            }
+        },
+        {
+            "id": 8,
+            "state": "running",
+            "route": 1,
+            "stop_idx": 1,
+            "load": 45,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 1,
+                "leg_index": 9,
+                "from_stop": 23,
+                "to_stop": 1,
+                "depart_s": 30005.35274582564,
+                "arrive_s": 31272.44983240664
+            }
+        },
+        {
+            "id": 9,
+            "state": "running",
+            "route": 1,
+            "stop_idx": 1,
+            "load": 22,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 1,
+                "leg_index": 9,
+                "from_stop": 23,
+                "to_stop": 1,
+                "depart_s": 29033.399863935243,
+                "arrive_s": 30322.308894782855
+            }
+        },
+        {
+            "id": 10,
+            "state": "running",
+            "route": 1,
+            "stop_idx": 58,
+            "load": 25,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 1,
+                "leg_index": 0,
+                "from_stop": 1,
+                "to_stop": 58,
+                "depart_s": 30058.622316256537,
+                "arrive_s": 30331.83050155264
+            }
+        },
+        {
+            "id": 11,
+            "state": "running",
+            "route": 1,
+            "stop_idx": 19,
+            "load": 60,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 1,
+                "leg_index": 3,
+                "from_stop": 3,
+                "to_stop": 19,
+                "depart_s": 30028.156050352638,
+                "arrive_s": 30171.19662177331
+            }
+        },
+        {
+            "id": 12,
+            "state": "running",
+            "route": 2,
+            "stop_idx": 6,
+            "load": 21,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 2,
+                "leg_index": 5,
+                "from_stop": 52,
+                "to_stop": 6,
+                "depart_s": 29882.183338609146,
+                "arrive_s": 30111.49310337883
+            }
+        },
+        {
+            "id": 13,
+            "state": "running",
+            "route": 2,
+            "stop_idx": 33,
+            "load": 10,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 2,
+                "leg_index": 8,
+                "from_stop": 56,
+                "to_stop": 33,
+                "depart_s": 30043.2071226334,
+                "arrive_s": 30226.385512306715
+            }
+        },
+        {
+            "id": 14,
+            "state": "running",
+            "route": 2,
+            "stop_idx": 15,
+            "load": 9,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 2,
+                "leg_index": 9,
+                "from_stop": 33,
+                "to_stop": 15,
+                "depart_s": 29634.97059822058,
+                "arrive_s": 30366.391340318758
+            }
+        },
+        {
+            "id": 15,
+            "state": "running",
+            "route": 2,
+            "stop_idx": 27,
+            "load": 14,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 2,
+                "leg_index": 0,
+                "from_stop": 15,
+                "to_stop": 27,
+                "depart_s": 29942.56584920811,
+                "arrive_s": 30205.789884529542
+            }
+        },
+        {
+            "id": 16,
+            "state": "running",
+            "route": 2,
+            "stop_idx": 24,
+            "load": 16,
+            "pending_route": -2,
+            "motion": {
+                "moving": false,
+                "leg_route": 2,
+                "leg_index": -1,
+                "from_stop": 24,
+                "to_stop": 24,
+                "depart_s": 30088.105284498048,
+                "arrive_s": 30088.105284498048
+            }
+        },
+        {
+            "id": 17,
+            "state": "running",
+            "route": 2,
+            "stop_idx": 52,
+            "load": 23,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 2,
+                "leg_index": 4,
+                "from_stop": 18,
+                "to_stop": 52,
+                "depart_s": 29984.45534129845,
+                "arrive_s": 30446.892390840643
+            }
+        },
+        {
+            "id": 18,
+            "state": "running",
+            "route": 3,
+            "stop_idx": 34,
+            "load": 22,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 3,
+                "leg_index": 4,
+                "from_stop": 44,
+                "to_stop": 34,
+                "depart_s": 30039.1991025041,
+                "arrive_s": 30174.802198678688
+            }
+        },
+        {
+            "id": 19,
+            "state": "running",
+            "route": 3,
+            "stop_idx": 12,
+            "load": 17,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 3,
+                "leg_index": 6,
+                "from_stop": 30,
+                "to_stop": 12,
+                "depart_s": 29878.692578398834,
+                "arrive_s": 30091.696424340174
+            }
+        },
+        {
+            "id": 20,
+            "state": "running",
+            "route": 3,
+            "stop_idx": 38,
+            "load": 60,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 3,
+                "leg_index": 9,
+                "from_stop": 26,
+                "to_stop": 38,
+                "depart_s": 29932.37607230437,
+                "arrive_s": 30862.19273643903
+            }
+        },
+        {
+            "id": 21,
+            "state": "running",
+            "route": 3,
+            "stop_idx": 38,
+            "load": 37,
+            "pending_route": -2,
+            "motion": {
+                "moving": false,
+                "leg_route": 3,
+                "leg_index": -1,
+                "from_stop": 38,
+                "to_stop": 38,
+                "depart_s": 30085.00683927232,
+                "arrive_s": 30085.00683927232
+            }
+        },
+        {
+            "id": 22,
+            "state": "running",
+            "route": 3,
+            "stop_idx": 51,
+            "load": 53,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 3,
+                "leg_index": 1,
+                "from_stop": 29,
+                "to_stop": 51,
+                "depart_s": 29993.53063188959,
+                "arrive_s": 30462.662447319948
+            }
+        },
+        {
+            "id": 23,
+            "state": "running",
+            "route": 4,
+            "stop_idx": 25,
+            "load": 14,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 4,
+                "leg_index": 6,
+                "from_stop": 0,
+                "to_stop": 25,
+                "depart_s": 29671.04904224265,
+                "arrive_s": 30155.436884431077
+            }
+        },
+        {
+            "id": 24,
+            "state": "running",
+            "route": 4,
+            "stop_idx": 22,
+            "load": 17,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 4,
+                "leg_index": 9,
+                "from_stop": 8,
+                "to_stop": 22,
+                "depart_s": 29871.00539967036,
+                "arrive_s": 31366.963623142292
+            }
+        },
+        {
+            "id": 25,
+            "state": "running",
+            "route": 4,
+            "stop_idx": 22,
+            "load": 5,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 4,
+                "leg_index": 9,
+                "from_stop": 8,
+                "to_stop": 22,
+                "depart_s": 29141.15250854077,
+                "arrive_s": 30720.67194872845
+            }
+        },
+        {
+            "id": 26,
+            "state": "running",
+            "route": 4,
+            "stop_idx": 22,
+            "load": 18,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 4,
+                "leg_index": 9,
+                "from_stop": 8,
+                "to_stop": 22,
+                "depart_s": 28714.477862695087,
+                "arrive_s": 30101.35212396078
+            }
+        },
+        {
+            "id": 27,
+            "state": "running",
+            "route": 4,
+            "stop_idx": 25,
+            "load": 6,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 4,
+                "leg_index": 6,
+                "from_stop": 0,
+                "to_stop": 25,
+                "depart_s": 30055.881368969825,
+                "arrive_s": 30517.5249495513
+            }
+        },
+        {
+            "id": 28,
+            "state": "running",
+            "route": 5,
+            "stop_idx": 49,
+            "load": 15,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 5,
+                "leg_index": 9,
+                "from_stop": 50,
+                "to_stop": 49,
+                "depart_s": 29325.554060934275,
+                "arrive_s": 31370.93451924635
+            }
+        },
+        {
+            "id": 29,
+            "state": "running",
+            "route": 5,
+            "stop_idx": 49,
+            "load": 14,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 5,
+                "leg_index": 9,
+                "from_stop": 50,
+                "to_stop": 49,
+                "depart_s": 28323.634148284753,
+                "arrive_s": 30412.710350057834
+            }
+        },
+        {
+            "id": 30,
+            "state": "running",
+            "route": 5,
+            "stop_idx": 54,
+            "load": 18,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 5,
+                "leg_index": 1,
+                "from_stop": 32,
+                "to_stop": 54,
+                "depart_s": 29465.9416751803,
+                "arrive_s": 30330.57465356894
+            }
+        },
+        {
+            "id": 31,
+            "state": "running",
+            "route": 5,
+            "stop_idx": 17,
+            "load": 14,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 5,
+                "leg_index": 6,
+                "from_stop": 48,
+                "to_stop": 17,
+                "depart_s": 29936.703115456083,
+                "arrive_s": 30805.81445162513
+            }
+        },
+        {
+            "id": 32,
+            "state": "running",
+            "route": 5,
+            "stop_idx": 50,
+            "load": 7,
+            "pending_route": -2,
+            "motion": {
+                "moving": true,
+                "leg_route": 5,
+                "leg_index": 8,
+                "from_stop": 20,
+                "to_stop": 50,
+                "depart_s": 29984.30863891298,
+                "arrive_s": 30154.369264805693
+            }
+        },
+        {
+            "id": 33,
+            "state": "reserve",
+            "route": -1,
+            "stop_idx": 0,
+            "load": 0,
+            "pending_route": -2,
+            "motion": {
+                "moving": false,
+                "leg_route": -1,
+                "leg_index": -1,
+                "from_stop": 0,
+                "to_stop": 0,
+                "depart_s": 21600,
+                "arrive_s": 21600
+            }
+        },
+        {
+            "id": 34,
+            "state": "reserve",
+            "route": -1,
+            "stop_idx": 0,
+            "load": 0,
+            "pending_route": -2,
+            "motion": {
+                "moving": false,
+                "leg_route": -1,
+                "leg_index": -1,
+                "from_stop": 0,
+                "to_stop": 0,
+                "depart_s": 21600,
+                "arrive_s": 21600
+            }
+        },
+        {
+            "id": 35,
+            "state": "reserve",
+            "route": -1,
+            "stop_idx": 0,
+            "load": 0,
+            "pending_route": -2,
+            "motion": {
+                "moving": false,
+                "leg_route": -1,
+                "leg_index": -1,
+                "from_stop": 0,
+                "to_stop": 0,
+                "depart_s": 21600,
+                "arrive_s": 21600
+            }
+        }
+    ],
+    "queues": [
+        {
+            "stop": 0,
+            "waiting": 0
+        },
+        {
+            "stop": 1,
+            "waiting": 0
+        },
+        {
+            "stop": 2,
+            "waiting": 2
+        },
+        {
+            "stop": 3,
+            "waiting": 148
+        },
+        {
+            "stop": 4,
+            "waiting": 2
+        },
+        {
+            "stop": 5,
+            "waiting": 9
+        },
+        {
+            "stop": 6,
+            "waiting": 5
+        },
+        {
+            "stop": 7,
+            "waiting": 3
+        },
+        {
+            "stop": 8,
+            "waiting": 1
+        },
+        {
+            "stop": 9,
+            "waiting": 2
+        },
+        {
+            "stop": 10,
+            "waiting": 14
+        },
+        {
+            "stop": 11,
+            "waiting": 0
+        },
+        {
+            "stop": 12,
+            "waiting": 2
+        },
+        {
+            "stop": 13,
+            "waiting": 31
+        },
+        {
+            "stop": 14,
+            "waiting": 10
+        },
+        {
+            "stop": 15,
+            "waiting": 3
+        },
+        {
+            "stop": 16,
+            "waiting": 1
+        },
+        {
+            "stop": 17,
+            "waiting": 0
+        },
+        {
+            "stop": 18,
+            "waiting": 3
+        },
+        {
+            "stop": 19,
+            "waiting": 2
+        },
+        {
+            "stop": 20,
+            "waiting": 0
+        },
+        {
+            "stop": 21,
+            "waiting": 0
+        },
+        {
+            "stop": 22,
+            "waiting": 16
+        },
+        {
+            "stop": 23,
+            "waiting": 0
+        },
+        {
+            "stop": 24,
+            "waiting": 0
+        },
+        {
+            "stop": 25,
+            "waiting": 4
+        },
+        {
+            "stop": 26,
+            "waiting": 4
+        },
+        {
+            "stop": 27,
+            "waiting": 2
+        },
+        {
+            "stop": 28,
+            "waiting": 0
+        },
+        {
+            "stop": 29,
+            "waiting": 2
+        },
+        {
+            "stop": 30,
+            "waiting": 1
+        },
+        {
+            "stop": 31,
+            "waiting": 7
+        },
+        {
+            "stop": 32,
+            "waiting": 1
+        },
+        {
+            "stop": 33,
+            "waiting": 4
+        },
+        {
+            "stop": 34,
+            "waiting": 6
+        },
+        {
+            "stop": 35,
+            "waiting": 1
+        },
+        {
+            "stop": 36,
+            "waiting": 0
+        },
+        {
+            "stop": 37,
+            "waiting": 2
+        },
+        {
+            "stop": 38,
+            "waiting": 0
+        },
+        {
+            "stop": 39,
+            "waiting": 0
+        },
+        {
+            "stop": 40,
+            "waiting": 6
+        },
+        {
+            "stop": 41,
+            "waiting": 0
+        },
+        {
+            "stop": 42,
+            "waiting": 1
+        },
+        {
+            "stop": 43,
+            "waiting": 3
+        },
+        {
+            "stop": 44,
+            "waiting": 0
+        },
+        {
+            "stop": 45,
+            "waiting": 0
+        },
+        {
+            "stop": 46,
+            "waiting": 9
+        },
+        {
+            "stop": 47,
+            "waiting": 7
+        },
+        {
+            "stop": 48,
+            "waiting": 0
+        },
+        {
+            "stop": 49,
+            "waiting": 1
+        },
+        {
+            "stop": 50,
+            "waiting": 2
+        },
+        {
+            "stop": 51,
+            "waiting": 1
+        },
+        {
+            "stop": 52,
+            "waiting": 0
+        },
+        {
+            "stop": 53,
+            "waiting": 12
+        },
+        {
+            "stop": 54,
+            "waiting": 3
+        },
+        {
+            "stop": 55,
+            "waiting": 3
+        },
+        {
+            "stop": 56,
+            "waiting": 0
+        },
+        {
+            "stop": 57,
+            "waiting": 2
+        },
+        {
+            "stop": 58,
+            "waiting": 1
+        },
+        {
+            "stop": 59,
+            "waiting": 1
+        }
+    ],
+    "summary": {
+        "arrived": 2203,
+        "boarded": 1863,
+        "still_waiting": 340,
+        "mean_wait_boarded_s": 374.7551796318976,
+        "mean_wait_incl_censored_s": 429.2782962901188,
+        "p95_s": 870
+    }
+}

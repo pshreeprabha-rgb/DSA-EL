@@ -29,12 +29,12 @@ fi
 if [[ "$USE_VALGRIND" == "1" ]]; then
     VG_LOG="$(mktemp)"
     valgrind --leak-check=full --error-exitcode=1 \
-        "$SERVER_BIN" --port "$PORT" --bind "$HOST" --data-dir "$ROOT_DIR/data" --speed 10 \
+        "$SERVER_BIN" --port "$PORT" --bind "$HOST" --data-dir "$ROOT_DIR/data" --offline --speed 10 \
         >"$VG_LOG" 2>&1 &
     SERVER_PID=$!
     MAX_POLLS=230
 else
-    "$SERVER_BIN" --port "$PORT" --bind "$HOST" --data-dir "$ROOT_DIR/data" --paused &
+    "$SERVER_BIN" --port "$PORT" --bind "$HOST" --data-dir "$ROOT_DIR/data" --offline --paused &
     SERVER_PID=$!
     MAX_POLLS=120
 fi
@@ -99,6 +99,7 @@ check_get "/api/demand/forecast?stop=3" "d['stop'] == 3 and len(d['hours']) == 2
 check_get "/api/metrics" "'arrived' in d['sim'] and len(d['routes']) == 6"
 check_get "/api/alerts" "'flags' in d and 'log' in d"
 check_get "/api/history" "d['size'] == 0 and d['entries'] == []"
+check_get "/api/eval" "'scenarios' in d"
 
 # POST /api/sim/control
 ctrl_tmp="$(mktemp)"

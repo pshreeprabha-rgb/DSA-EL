@@ -1,8 +1,18 @@
-# Smart Public Transport Optimization System — HTTP API Contract (Part 4A)
+# Smart Public Transport Optimization System — HTTP API Contract (Part 4B)
 
 Base URL (default): `http://127.0.0.1:8080`
 
 All endpoints live under `/api/` and return `Content-Type: application/json`, `Cache-Control: no-store`, explicit `Content-Length`, and CORS headers configured via `--cors` (default `http://localhost:5173`).
+
+---
+
+## 0. Concurrency, Thread Model & Traffic Overlay Note
+
+- **Thread Model (3 concurrent components)**:
+  1. **CivetWeb HTTP workers** (`4` threads): parse parameters and up to 64 KB request bodies before locking, acquire `AppCtx.mutex` to read/mutate shared state and serialize JSON, release the mutex, and then write HTTP headers/body to the socket.
+  2. **Simulation thread**: wakes every 50 ms of wall time, acquires `AppCtx.mutex`, advances `sim_run_until` by `speed * wall_dt` simulated seconds if running, runs `registry_sync`, bumps `geometry_version` if `rm_history_size` changed, and unlocks.
+  3. **Traffic poller thread**: runs every 5 wall seconds; acquires `AppCtx.mutex` briefly only to read `(sim_now_min, rain)`, releases the mutex before calling `tu_update()` on its **private `Graph` copy** (so network I/O never blocks HTTP or sim threads), then briefly acquires `AppCtx.mutex` again to copy `traffic_factor` values onto the shared graph (`blocked` flags untouched) and update cached `/api/state` and `/api/metrics` traffic fields.
+- **Traffic Overlay Semantics**: When live traffic fetching is enabled (no `--offline` or `--no-poll`), the TomTom overlay reflects **REAL-TIME traffic data applied to a SIMULATED simulation clock**, layered over `traffic_sim` time-of-day congestion.
 
 ---
 
@@ -324,13 +334,97 @@ For each bus in `/api/state`:
 ### `POST /api/sim/control`
 - **Request Body** (`<= 65536` bytes):
 ```json
-{"action": "start", "speed": 120}
+{"action": "start|pause|resume|speed|reset|seek", "speed": 120, "time_min": 480}
 ```
-  - `action`: optional string `"start"`, `"pause"`, `"resume"`, or `"speed"` (required if `speed` omitted).
-  - `speed`: optional finite number in `[1, 3600]` (required when `action` is `"speed"` or omitted).
+  - `action`: optional string `"start"`, `"pause"`, `"resume"`, `"speed"`, `"reset"`, or `"seek"` (required if `speed` omitted).
+  - `speed`: optional finite number in `[1, 3600]` (accepted with any action; required if `action` is `"speed"` or omitted).
+  - `time_min`: required with `"seek"`; finite multiple of `slice_min` inside `[start_min, end_min]`. `"seek"` resets state, advances to `time_min` under lock, and leaves `running: false`. `"reset"` drains `RouteManager` undo history, resets traffic/blocked edges, recreates sim/registry cleanly with `running: false`, and bumps `geometry_version`.
 - **Example Response (`200 OK`)**:
 ```json
-{"ok":true,"running":true,"speed":120,"clock_min":360}
+{"ok":true,"clock_min":480,"running":false,"speed":60}
 ```
-- **Errors**: `400 invalid_argument` (malformed JSON, unknown action, invalid/out-of-range speed), `405` (`Allow: POST, OPTIONS`), `413 payload_too_large` (body > 64 KB).
+- **Errors**: `400 invalid_argument` (malformed JSON, unknown action, invalid `speed`, non-slice-multiple or out-of-window `time_min`), `405` (`Allow: POST, OPTIONS`), `413 payload_too_large`.
+
+### `POST /api/scenario`
+- **Request Body**:
+  - Rain: `{"kind": "rain_on"}` or `{"kind": "rain_off"}`
+  - Event: `{"kind": "event_on"|"event_off", "stop": 3}`
+  - Breakdown/repair: `{"kind": "breakdown"|"repair", "bus": 0}`
+  - Edge block/unblock: `{"kind": "block_edge"|"unblock_edge", "edge": 3614}` or `{"kind": "block_edge"|"unblock_edge", "route": 0, "leg": 0}` (resolves first edge of leg's current path).
+  - Schedules at `ceil(now_min / slice_min) * slice_min` (may equal `now_min`).
+- **Example Response (`200 OK`)**:
+```json
+{"scheduled":true,"time_min":480,"kind":"block_edge"}
+```
+- **Errors**: `400 invalid_argument` (unknown kind, bad IDs, malformed/mixed fields), `409 conflict` (next slice is at/past `end_min`, or target leg currently has no path), `405`, `413`.
+
+### `POST /api/allocate`
+- **Request Body** (either policy update or manual bus move):
+  - Policy: `{"policy": "equal|proportional|greedy_spec|greedy_marginal", "predictor": "oracle|ma|rf", "force": false}` (`predictor` optional; unknown or unloaded predictor strictly returns `400`, never a silent substitute).
+  - Manual move: `{"manual_move": {"bus": 0, "to_route": 1}}`
+- **Example Responses (`200 OK`)**:
+```json
+{"policy":"greedy_spec","decision":{"forced":true,"moves_applied":1},"counts":[7,6,5,5,5,5]}
+```
+```json
+{"moved":{"bus":0,"to_route":1}}
+```
+- **Errors**: `400 invalid_argument` (unknown/unloaded predictor, bad bus/route ID, bus not RUNNING or already has pending move, forcing on FIXED_* policy), `405`, `413`.
+
+### `POST /api/inject`
+- **Request Body**: `{"stop": 3, "count": 250, "ride": 1}` (`count` integer `1..500`; `ride` optional non-negative integer, `0` = random).
+- **Example Response (`200 OK`)**:
+```json
+{"stop":3,"count":250,"time_s":28800}
+```
+- **Errors**: `400 invalid_argument` (bad stop, count outside `1..500`, invalid `ride`, injection past slice window), `405`, `413`.
+
+### `POST /api/route/optimize`
+- **Request Body**: `{"from_stop": 0, "to_stop": 5, "algo": "astar|dijkstra|both", "mode": "traffic|static"}`
+- **Notes**: Evaluates shortest path on live `Graph` under lock and stores result in `last_optimize` for `/api/metrics`. `nodes_ratio` appears only when `algo` is `"both"`.
+- **Example Response (`200 OK`)** (from `docs/mock/optimize.json`, path truncated):
+```json
+{
+    "mode": "traffic",
+    "astar": {
+        "found": true,
+        "time_s": 641.182110184,
+        "length_m": 5053.6476748,
+        "nodes_explored": 525,
+        "time_static_s": 641.182110184,
+        "time_traffic_s": 641.182110184,
+        "path": [[12.9653451, 77.6175664], [12.9664386, 77.6141794]]
+    },
+    "dijkstra": {
+        "found": true,
+        "time_s": 641.182110184,
+        "length_m": 5053.6476748,
+        "nodes_explored": 1419,
+        "time_static_s": 641.182110184,
+        "time_traffic_s": 641.182110184,
+        "path": [[12.9653451, 77.6175664], [12.9664386, 77.6141794]]
+    },
+    "nodes_ratio": 0.36997885835095137
+}
+```
+- **Errors**: `400 invalid_argument` (bad stop index, unknown `algo` or `mode`), `405`, `413`.
+
+### `POST /api/undo`
+- **Request Body**: `{}` or empty body. Undoes top `RouteManager` ChangeSet and bumps `geometry_version`.
+- **Example Response (`200 OK`)**:
+```json
+{"undone":"block edge 3614","history_size":0,"geometry_version":3}
+```
+- **Errors**: `409 conflict` (history stack empty), `400 invalid_argument` (malformed non-empty body), `405`, `413`.
+
+### `GET /api/eval`
+- **Notes**: Reads `<data_dir>/eval/summary.json` directly on each request; never reads any other path.
+- **Example Response (`200 OK`)** (truncated from `docs/mock/eval.json`):
+```json
+{
+    "config": {"seeds": 30, "base_seed": 1000, "stops": 60, "routes": 6, "buses": 36},
+    "scenarios": [{"name": "normal", "metric": "mean_wait_incl_censored_s"}]
+}
+```
+- **Errors**: `404 not_found` (file absent), `500 internal` (malformed JSON), `405`.
 

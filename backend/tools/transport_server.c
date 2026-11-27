@@ -25,6 +25,8 @@ static void print_usage(const char *prog) {
         "  --predictor PR         oracle|ma|rf (default: ma)\n"
         "  --speed X              Sim seconds per wall second, 1..3600 (default: 60)\n"
         "  --paused               Start simulation paused\n"
+        "  --offline              Disable live TomTom API calls\n"
+        "  --no-poll              Disable live traffic polling\n"
         "  --cors ORIGIN          Access-Control-Allow-Origin (default: http://localhost:5173)\n",
         prog);
 }
@@ -66,6 +68,10 @@ int main(int argc, char **argv) {
             return 1;
         } else if (strcmp(arg, "--paused") == 0) {
             opt.paused = 1;
+        } else if (strcmp(arg, "--offline") == 0) {
+            opt.offline = 1;
+        } else if (strcmp(arg, "--no-poll") == 0) {
+            opt.no_poll = 1;
         } else if (strcmp(arg, "--port") == 0 && i + 1 < argc) {
             if (api_parse_int_strict(argv[++i], 1, 65535, &opt.port) != STATUS_OK) {
                 fprintf(stderr, "Error: invalid --port\n");
@@ -146,6 +152,8 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    const char *init_pred = app_active_predictor_name(app);
+
     ApiHttpServer *http = NULL;
     st = api_http_start(app, &http);
     if (st != STATUS_OK || !http) {
@@ -158,6 +166,10 @@ int main(int argc, char **argv) {
     /* Install signal handlers after mg_start() per CivetWeb docs */
     api_signals_install();
 
+    printf("transport_server listening on http://%s:%d (paused=%d, speed=%.1f, predictor=%s)\n",
+           opt.bind_addr, opt.port, opt.paused, opt.speed, init_pred);
+    fflush(stdout);
+
     st = app_start_thread(app);
     if (st != STATUS_OK) {
         fprintf(stderr, "Failed to start simulation thread (%s)\n", status_to_string(st));
@@ -165,10 +177,6 @@ int main(int argc, char **argv) {
         app_destroy(app);
         return 1;
     }
-
-    printf("transport_server listening on http://%s:%d (paused=%d, speed=%.1f, predictor=%s)\n",
-           opt.bind_addr, opt.port, opt.paused, opt.speed, app_active_predictor_name(app));
-    fflush(stdout);
 
     while (!api_signal_stop_requested()) {
         api_sleep_ms(100);

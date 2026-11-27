@@ -1,0 +1,28 @@
+{
+    "flags": [
+        {
+            "stop": 5,
+            "name": "Canara Bank",
+            "time_min": 450,
+            "observed": 9,
+            "expected": 3.368421052631579,
+            "z": 3.0684354405187637
+        },
+        {
+            "stop": 3,
+            "name": "Gandhi Bazaar, Basavanagudi",
+            "time_min": 495,
+            "observed": 254,
+            "expected": 2.2017543859649122,
+            "z": 169.6946946836829
+        }
+    ],
+    "log": [
+        "[06:00:00] sim created: 6 routes, 60 stops, 36 buses (3 reserve)",
+        "[07:30:00] anomaly detected at stop 5 (obs 9, exp 3.4, z 3.07)",
+        "[08:00:00] scenario: blocked edge 3614",
+        "[08:00:00] scenario: event ON at stop 3",
+        "[08:15:00] anomaly detected at stop 3 (obs 254, exp 2.2, z 169.69)",
+        "[08:21:12] move requested: bus 0 from route 0 to route 1"
+    ]
+}

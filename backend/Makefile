@@ -38,10 +38,10 @@ TEST_SRCS = tests/test_linkedlist.c tests/test_stack.c tests/test_queue.c tests/
             tests/test_graph.c tests/test_pathfind.c tests/test_reroute.c tests/test_traffic_sim.c tests/test_traffic_client.c tests/test_osm_loader.c \
             tests/test_graph_scc.c tests/test_demand_model.c tests/test_ai_inference.c tests/test_ai_demand.c \
             tests/test_network.c tests/test_fleet_alloc.c tests/test_anomaly.c tests/test_sim.c tests/test_sim_ext.c \
-            tests/test_eval.c tests/test_registry.c tests/test_api_json.c
+            tests/test_eval.c tests/test_registry.c tests/test_api_json.c tests/test_api_actions.c
 TEST_BINS = $(patsubst tests/%.c,$(BUILD_DIR)/tests/%$(EXE),$(TEST_SRCS))
 
-.PHONY: all test asan valgrind clean cli server smoke eval-quick eval
+.PHONY: all test asan valgrind tsan clean cli server smoke eval-quick eval
 
 all: $(LIB)
 
@@ -117,6 +117,17 @@ else
 	@echo ========================================
 endif
 
+tsan:
+ifeq ($(OS),Windows_NT)
+	@echo [TSAN] Notice: ThreadSanitizer is not supported under native Windows MinGW GCC.
+	@exit 1
+else
+	$(MAKE) server test BUILD_DIR=build_tsan CFLAGS="$(CFLAGS) -fsanitize=thread"
+	cd .. && timeout 180 env SERVER_BIN=backend/build_tsan/transport_server bash scripts/api_smoke.sh
+	cd .. && timeout 240 env SERVER_BIN=backend/build_tsan/transport_server STRESS_COUNT=300 bash scripts/api_stress.sh
+endif
+
 clean:
 	@$(call RMDIR,build)
 	@$(call RMDIR,build_asan)
+	@$(call RMDIR,build_tsan)

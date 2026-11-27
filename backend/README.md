@@ -576,4 +576,11 @@ The simulation engine is single-threaded and strictly deterministic. Given the s
   - `tests/test_api_json.c` tests JSON builders, escaping, strict parameter validation, and error mapping without sockets (26 test suites total).
   - `make smoke` runs [api_smoke.sh](file:///home/prabhashetty/transport/scripts/api_smoke.sh); [dump_mock_data.sh](file:///home/prabhashetty/transport/scripts/dump_mock_data.sh) saves mock payloads under `docs/mock/`; [api_contract.md](file:///home/prabhashetty/transport/docs/api_contract.md) documents the HTTP contract.
 
+---
+
+### 16. Part 4B: Control Endpoints, Evaluation Endpoint, Live Traffic Poller & Hardening
+- **Control & Action Endpoints**: Added `reset` & `seek` actions to `/api/sim/control`, `POST /api/scenario`, `POST /api/allocate` (policy/predictor switch + manual bus move), `POST /api/inject`, `POST /api/route/optimize` (with `last_optimize` persisted for `/api/metrics`), `POST /api/undo`, and request-time `GET /api/eval` reading `data/eval/summary.json`.
+- **Traffic Poller Thread**: Server creates `Sim` with `apply_traffic = 0` and spawns a third thread owning a private `Graph` copy and `TrafficUpdater` (`data/corridors.txt`, `.env` key when live). Every 5 s it reads `(sim_now_min, rain)` under lock, runs `tu_update()` unlocked so HTTP threads never stall on network timeouts, then copies edge `traffic_factor` values onto the shared graph under lock without touching blocked flags. Live traffic overlay is **REAL-TIME data applied to a SIMULATED clock** (`--offline` / `--no-poll` disables live calls).
+- **Tests, Stress, Valgrind & TSan**: Added [test_api_actions.c](file:///home/prabhashetty/transport/backend/tests/test_api_actions.c) (27 test suites total), [api_stress.sh](file:///home/prabhashetty/transport/scripts/api_stress.sh), [api_valgrind.sh](file:///home/prabhashetty/transport/scripts/api_valgrind.sh), and `make tsan`; refreshed `docs/mock/` including `state_at_08_00.json` and active blocked/alert/pending-move snapshots.
+
 
