@@ -1,0 +1,60 @@
+================================================================================
+  PART 3C-1 VERIFICATION RESULTS: REASSIGNMENT MODES (DUMP vs DRAIN)
+================================================================================
+
+=== 1. SIM-COMPARE: REASSIGN DUMP (TIME SPACING, WARMUP 30M, SEED 42) ===
+$ ./build/transport_cli sim-compare --spacing time --reassign dump
+[predictor] oracle: loaded (built-in)
+[predictor] ma: loaded (../data/demand_train.csv)
+[predictor] ols: loaded (../data/demand_train.csv)
+[predictor] rf: loaded (../data/demand_rf.txt)
+
+=== POLICY COMPARISON SUMMARY ===
+Spacing:                  by-time
+Reassign Mode:            dump
+Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches
+-------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+-----------
+fixed_equal              | 13344    | 32            | 750.54        | 2130.00      | 5830.11      | 68       | 0            | 0     | 0     | 0         
+fixed_proportional       | 13341    | 35            | 754.38        | 2130.00      | 5131.75      | 72       | 0            | 0     | 0     | 0         
+greedy_spec_ma           | 13335    | 41            | 817.70        | 2370.00      | 5461.71      | 79       | 10           | 4     | 0     | 0         
+greedy_marginal_ma       | 13345    | 31            | 822.53        | 2340.00      | 4600.94      | 78       | 45           | 7     | 0     | 0         
+greedy_marginal_rf       | 13350    | 26            | 731.68        | 2010.00      | 3857.17      | 60       | 32           | 6     | 0     | 0         
+greedy_marginal_oracle   | 13345    | 31            | 822.53        | 2340.00      | 4600.94      | 78       | 45           | 7     | 0     | 0         
+
+
+=== 2. SIM-COMPARE: REASSIGN DRAIN (TIME SPACING, WARMUP 30M, SEED 42) ===
+$ ./build/transport_cli sim-compare --spacing time --reassign drain
+[predictor] oracle: loaded (built-in)
+[predictor] ma: loaded (../data/demand_train.csv)
+[predictor] ols: loaded (../data/demand_train.csv)
+[predictor] rf: loaded (../data/demand_rf.txt)
+
+=== POLICY COMPARISON SUMMARY ===
+Spacing:                  by-time
+Reassign Mode:            drain
+Policy                   | Boarded  | Still Waiting | Mean Wait (s) | P95 Wait (s) | Max Wait (s) | Full Bus | Forced Dumps | Moves | Flags | Dispatches
+-------------------------+----------+---------------+---------------+--------------+--------------+----------+--------------+-------+-------+-----------
+fixed_equal              | 13344    | 32            | 750.54        | 2130.00      | 5830.11      | 68       | 0            | 0     | 0     | 0         
+fixed_proportional       | 13341    | 35            | 754.38        | 2130.00      | 5131.75      | 72       | 0            | 0     | 0     | 0         
+greedy_spec_ma           | 13335    | 41            | 785.46        | 2250.00      | 6084.12      | 67       | 0            | 4     | 0     | 0         
+greedy_marginal_ma       | 13333    | 43            | 781.87        | 2160.00      | 4600.94      | 69       | 0            | 7     | 0     | 0         
+greedy_marginal_rf       | 13350    | 26            | 731.02        | 1950.00      | 3733.84      | 61       | 0            | 6     | 0     | 0         
+greedy_marginal_oracle   | 13333    | 43            | 781.87        | 2160.00      | 4600.94      | 69       | 0            | 7     | 0     | 0         
+
+
+=== 3. OBSERVATIONS (SINGLE SEED = 42, NO SCENARIOS) ===
+- Both runs above use a single PRNG seed (seed = 42) with default network
+  settings (--stops 60 --routes 6 --buses 36 --spacing time).
+- Under --reassign dump, all 6 policy rows reproduce the raw numbers in
+  docs/part3b2_results.txt Section 3 (greedy_spec_ma: 10 forced dumps, 817.70 s
+  mean wait; greedy_marginal_ma and greedy_marginal_oracle: 45 forced dumps,
+  822.53 s mean wait; greedy_marginal_rf: 32 forced dumps, 731.68 s mean wait).
+- Under --reassign drain, forced_dumps is 0 across all 6 policies while the
+  same move counts apply (4, 7, 6, 7), and observed mean wait times on seed 42
+  are 785.46 s (greedy_spec_ma), 781.87 s (greedy_marginal_ma and
+  greedy_marginal_oracle), and 731.02 s (greedy_marginal_rf), compared to
+  750.54 s for fixed_equal. Cause of wait-time differences is unmeasured.
+- In DUMP mode, forced dumps remove onboard passengers without any wait-time
+  penalty or re-queuing; in DRAIN mode, a reassigned bus stops boarding and
+  continues alighting passengers until load reaches 0 before deadheading.
+

@@ -500,17 +500,20 @@ Under `fixed_equal` on `seed = 42`, full bus events are **136** (`--spacing stop
 
 #### 11.10 CLI Commands
 ```bash
-# Run single simulation with time spacing (default) and equal policy
+# Run single simulation with time spacing (default) and drain reassignment (CLI default)
 ./build/transport_cli sim-run --stops 60 --routes 6 --buses 36
 
-# Run single simulation with legacy stop spacing
-./build/transport_cli sim-run --stops 60 --routes 6 --buses 36 --spacing stop
+# Run single simulation with legacy stop spacing and dump reassignment
+./build/transport_cli sim-run --stops 60 --routes 6 --buses 36 --spacing stop --reassign dump
 
 # Run single simulation with greedy marginal waiting time reduction
 ./build/transport_cli sim-run --stops 60 --routes 6 --buses 36 --policy greedy-marginal --predictor ma
 
-# Compare all 6 policies under baseline conditions (time spacing)
+# Compare all 6 policies under baseline conditions (time spacing, drain reassignment)
 ./build/transport_cli sim-compare --stops 60 --routes 6 --buses 36
+
+# Compare all 6 policies with legacy dump reassignment
+./build/transport_cli sim-compare --stops 60 --routes 6 --buses 36 --reassign dump
 
 # Compare all 6 policies under rain, demand surge, reserve buses, and anomaly dispatch
 ./build/transport_cli sim-compare --stops 60 --routes 6 --buses 36 \
@@ -522,5 +525,20 @@ Under `fixed_equal` on `seed = 42`, full bus events are **136** (`--spacing stop
 
 #### 11.11 Thread Safety & Determinism Disclaimer
 The simulation engine is single-threaded and strictly deterministic. Given the same pseudo-random seed, scenario inputs, and network configuration, identical event sequences and bit-exact statistical metrics are reproduced across all runs. All heap allocations are tracked and freed upon `sim_destroy()`.
+
+---
+
+### 12. Part 3C-1: Simulation Engine Additive Extensions (`sim.h`, `sim.c`)
+- **Reassignment Mode (`SimConfig.reassign_mode`)**:
+  - `SIM_REASSIGN_DUMP` (`0`, **library default** in `sim_config_default()`): preserves legacy behavior where a bus with a pending reassignment dumps remaining onboard load (`forced_dumps += load`) at its next arrival.
+  - `SIM_REASSIGN_DRAIN` (`1`): a bus with a pending reassignment stops boarding, continues its route and alights passengers normally (with dwell `dwell_s + per_pax_s * alighted`), and executes the move (recomputing entry stop and deadhead via `network_entry_time_s` at execution) at the first arrival after alighting where `load == 0`, with `forced_dumps` remaining `0`.
+  - **CLI Default Difference**: `transport_cli sim-run` and `sim-compare` accept `--reassign dump|drain` and default to **`drain`**, which is a deliberate difference from the library default `SIM_REASSIGN_DUMP` (`0`) so existing library callers retain legacy behavior unless they opt into `SIM_REASSIGN_DRAIN`.
+- **Runtime Control, Inspection & Observer APIs**:
+  - `sim_request_move(s, bus_id, to_route)`: queues an administrative reassignment for a `RUNNING` bus with no pending move (always recomputes entry stop and deadhead at execution).
+  - `sim_set_policy(s, policy, predictor)` & `sim_force_decision(s, &moves_applied)`: dynamically switches allocation policy (borrowed predictor) and runs an immediate controller decision.
+  - `sim_rain_active(s)`, `sim_event_active(s, stop)`, `sim_policy(s)`, `sim_stop_hour_arrivals(s, stop, hour)`: inspect live weather/event state, active policy, and per-stop hourly passenger arrivals.
+  - `sim_bus_motion(s, bus, &out)`: retrieves instantaneous dwelling/leg/deadhead motion timestamps and stops.
+  - `sim_set_loop_observer(s, fn, ctx)`: registers a callback fired upon completing `m` consecutive legs of a `RUNNING` bus; runs synchronously inside `sim_run_until()` on the caller's thread so the caller's lock covers it.
+- **Test Suite**: Added 10 unit/integration tests in `tests/test_sim_ext.c` (23 suites total in `Makefile`). Saved `sim-compare` dump vs. drain outputs in [part3c1_results.txt](file:///home/prabhashetty/transport/docs/part3c1_results.txt).
 
 

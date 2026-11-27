@@ -34,6 +34,7 @@ typedef struct {
     double first_event_start_min;
     double first_flag_min;
     int is_event_active;
+    size_t hour_arrivals[24];
 } SimStop;
 
 typedef struct {
@@ -50,6 +51,17 @@ typedef struct {
     int pending_route;
     int pending_entry;
     double pending_deadhead_s;
+    int pending_recompute;
+    int arrivals_in_loop;
+    double loop_start_s;
+    int pax_in_loop;
+    int motion_moving;
+    int motion_route;
+    int motion_leg_index;
+    int motion_from_stop;
+    int motion_to_stop;
+    double motion_depart_s;
+    double motion_arrive_s;
     uint64_t hops;
 } SimBus;
 
@@ -105,6 +117,10 @@ struct Sim {
     char log_lines[SIM_MAX_LOG_STORED][160];
     size_t log_count;
     size_t log_total_count;
+
+    /* Loop observer */
+    SimLoopFn loop_fn;
+    void *loop_ctx;
 };
 
 /* --- Helpers --- */
@@ -272,6 +288,10 @@ static void bus_breakdown(Sim *s, int bus_id) {
         memset(b->alight, 0, b->alight_cap * sizeof(int));
     }
     b->pending_route = -2;
+    b->pending_recompute = 0;
+    b->arrivals_in_loop = 0;
+    b->loop_start_s = 0.0;
+    b->pax_in_loop = 0;
     b->epoch++;
 
     if (b->state == SIM_BUS_RUNNING) {
@@ -280,6 +300,13 @@ static void bus_breakdown(Sim *s, int bus_id) {
         b->stop_idx = b->pending_entry;
     }
     b->state = SIM_BUS_BROKEN;
+    b->motion_moving = 0;
+    b->motion_route = -1;
+    b->motion_leg_index = -1;
+    b->motion_from_stop = b->stop_idx;
+    b->motion_to_stop = b->stop_idx;
+    b->motion_depart_s = s->now_s;
+    b->motion_arrive_s = s->now_s;
     sim_log_msg(s, "bus %d broken at stop %d", bus_id, b->stop_idx);
 }
 
@@ -291,6 +318,13 @@ static Status bus_repair(Sim *s, int bus_id) {
     }
     b->state = SIM_BUS_RESERVE;
     b->route = -1;
+    b->motion_moving = 0;
+    b->motion_route = -1;
+    b->motion_leg_index = -1;
+    b->motion_from_stop = b->stop_idx;
+    b->motion_to_stop = b->stop_idx;
+    b->motion_depart_s = s->now_s;
+    b->motion_arrive_s = s->now_s;
     sim_log_msg(s, "bus %d repaired at stop %d, now reserve", bus_id, b->stop_idx);
     return STATUS_OK;
 }
@@ -319,6 +353,9 @@ static void process_arrive(Sim *s, SimEvent *ev) {
             memset(b->alight, 0, m * sizeof(int));
         }
         b->load = 0;
+        b->arrivals_in_loop = 0;
+        b->loop_start_s = s->now_s;
+        b->pax_in_loop = 0;
     }
 
     if (b->state != SIM_BUS_RUNNING) {
@@ -339,61 +376,123 @@ static void process_arrive(Sim *s, SimEvent *ev) {
         b->alight[pos] = 0;
     }
 
+    if (b->arrivals_in_loop == 0) {
+        b->arrivals_in_loop = 1;
+        b->loop_start_s = s->now_s;
+        b->pax_in_loop = 0;
+    } else {
+        b->arrivals_in_loop++;
+        if (b->arrivals_in_loop == (int)m + 1) {
+            if (s->loop_fn) {
+                s->loop_fn(s->loop_ctx, bus_id, (int)route, b->loop_start_s, s->now_s, b->pax_in_loop);
+            }
+            b->arrivals_in_loop = 1;
+            b->loop_start_s = s->now_s;
+            b->pax_in_loop = 0;
+        }
+    }
+
     /* Pending reassignment check */
     if (b->pending_route != -2) {
-        s->stats.forced_dumps += (size_t)b->load;
-        b->load = 0;
-        if (b->alight) {
-            memset(b->alight, 0, b->alight_cap * sizeof(int));
+        int execute_move = (s->cfg.reassign_mode == SIM_REASSIGN_DUMP) || (b->load == 0);
+        if (execute_move) {
+            b->arrivals_in_loop = 0;
+            b->loop_start_s = 0.0;
+            b->pax_in_loop = 0;
+            if (s->cfg.reassign_mode == SIM_REASSIGN_DUMP) {
+                s->stats.forced_dumps += (size_t)b->load;
+            }
+            b->load = 0;
+            if (b->alight) {
+                memset(b->alight, 0, b->alight_cap * sizeof(int));
+            }
+            if (b->pending_route == -1) {
+                b->state = SIM_BUS_RESERVE;
+                b->stop_idx = (int)stop_idx;
+                b->route = -1;
+                b->motion_moving = 0;
+                b->motion_route = -1;
+                b->motion_leg_index = -1;
+                b->motion_from_stop = (int)stop_idx;
+                b->motion_to_stop = (int)stop_idx;
+                b->motion_depart_s = s->now_s;
+                b->motion_arrive_s = s->now_s;
+                sim_log_msg(s, "bus %d reassigned to reserve at stop %zu", bus_id, stop_idx);
+            } else {
+                int target_route = b->pending_route;
+                int entry_stop = b->pending_entry;
+                double deadhead_s = b->pending_deadhead_s;
+                if (s->cfg.reassign_mode == SIM_REASSIGN_DRAIN || b->pending_recompute) {
+                    int e = -1;
+                    double dh = network_entry_time_s(s->net, stop_idx, (size_t)target_route, &e);
+                    if (dh >= 0.0) {
+                        entry_stop = e;
+                        deadhead_s = dh;
+                    }
+                }
+                b->state = SIM_BUS_DEADHEAD;
+                b->stop_idx = entry_stop;
+                b->pending_entry = entry_stop;
+                b->motion_moving = 1;
+                b->motion_route = target_route;
+                b->motion_leg_index = -1;
+                b->motion_from_stop = (int)stop_idx;
+                b->motion_to_stop = entry_stop;
+                b->motion_depart_s = s->now_s;
+                b->motion_arrive_s = s->now_s + deadhead_s;
+                s->stats.moves_applied++;
+                s->stats.deadhead_s_total += deadhead_s;
+                sim_push_event(s, s->now_s + deadhead_s, SIM_EVT_ARRIVE, bus_id, b->epoch, target_route, NULL);
+                sim_log_msg(s, "bus %d deadheading to route %d entry stop %d (%.1f s)",
+                            bus_id, target_route, b->stop_idx, deadhead_s);
+            }
+            b->pending_route = -2;
+            b->pending_recompute = 0;
+            return;
         }
-        if (b->pending_route == -1) {
-            b->state = SIM_BUS_RESERVE;
-            b->stop_idx = (int)stop_idx;
-            b->route = -1;
-            sim_log_msg(s, "bus %d reassigned to reserve at stop %zu", bus_id, stop_idx);
-        } else {
-            b->state = SIM_BUS_DEADHEAD;
-            b->stop_idx = b->pending_entry;
-            int target_route = b->pending_route;
-            double deadhead_s = b->pending_deadhead_s;
-            s->stats.moves_applied++;
-            s->stats.deadhead_s_total += deadhead_s;
-            sim_push_event(s, s->now_s + deadhead_s, SIM_EVT_ARRIVE, bus_id, b->epoch, target_route, NULL);
-            sim_log_msg(s, "bus %d deadheading to route %d entry stop %d (%.1f s)",
-                        bus_id, target_route, b->stop_idx, deadhead_s);
-        }
-        b->pending_route = -2;
-        return;
     }
 
     /* Boarding */
-    int space = b->capacity - b->load;
-    SimStop *st = &s->stops[stop_idx];
-    size_t q_sz = queue_size(st->queue);
-    int nb = (space > (int)q_sz) ? (int)q_sz : space;
-    if (nb < 0) nb = 0;
+    int nb = 0;
+    if (b->pending_route == -2) {
+        int space = b->capacity - b->load;
+        SimStop *st = &s->stops[stop_idx];
+        size_t q_sz = queue_size(st->queue);
+        nb = (space > (int)q_sz) ? (int)q_sz : space;
+        if (nb < 0) nb = 0;
 
-    for (int i = 0; i < nb; i++) {
-        SimPassenger *p = (SimPassenger *)queue_dequeue(st->queue);
-        if (!p) break;
-        double wait_s = s->now_s - p->arrival_s;
-        record_boarded(s, route, p->arrival_s, wait_s);
-        size_t drop_pos = (pos + (size_t)p->ride_stops) % m;
-        if (b->alight && drop_pos < b->alight_cap) {
-            b->alight[drop_pos]++;
+        for (int i = 0; i < nb; i++) {
+            SimPassenger *p = (SimPassenger *)queue_dequeue(st->queue);
+            if (!p) break;
+            double wait_s = s->now_s - p->arrival_s;
+            record_boarded(s, route, p->arrival_s, wait_s);
+            size_t drop_pos = (pos + (size_t)p->ride_stops) % m;
+            if (b->alight && drop_pos < b->alight_cap) {
+                b->alight[drop_pos]++;
+            }
+            b->load++;
+            free(p);
         }
-        b->load++;
-        free(p);
-    }
 
-    if (queue_size(st->queue) > 0) {
-        s->stats.full_bus_events++;
+        b->pax_in_loop += nb;
+
+        if (queue_size(st->queue) > 0) {
+            s->stats.full_bus_events++;
+        }
     }
 
     double dwell = s->cfg.dwell_s + s->cfg.per_pax_s * (double)(alighted + nb);
     s->load_sum += (double)b->load / (double)b->capacity;
     s->departures++;
     s->stats.bus_arrivals++;
+
+    b->motion_moving = 0;
+    b->motion_route = (int)route;
+    b->motion_leg_index = -1;
+    b->motion_from_stop = (int)stop_idx;
+    b->motion_to_stop = (int)stop_idx;
+    b->motion_depart_s = s->now_s + dwell;
+    b->motion_arrive_s = s->now_s + dwell;
 
     sim_push_event(s, s->now_s + dwell, SIM_EVT_DEPART, bus_id, b->epoch, 0, NULL);
 }
@@ -410,15 +509,31 @@ static void process_depart(Sim *s, SimEvent *ev) {
     double t_leg = network_leg_time_s(s->net, route, pos, COST_TRAFFIC);
     if (t_leg < 0.0) {
         s->stats.stalled_s += 60.0;
+        b->motion_moving = 0;
+        b->motion_route = (int)route;
+        b->motion_leg_index = -1;
+        b->motion_from_stop = b->stop_idx;
+        b->motion_to_stop = b->stop_idx;
+        b->motion_depart_s = s->now_s + 60.0;
+        b->motion_arrive_s = s->now_s + 60.0;
         sim_push_event(s, s->now_s + 60.0, SIM_EVT_DEPART, bus_id, b->epoch, 0, NULL);
         return;
     }
 
+    int from_stop = (int)network_route_stop(s->net, route, pos);
     double u = demand_unit(demand_hash(s->cfg.seed, (uint64_t)(5000000 + bus_id), b->hops, 31));
     b->hops++;
     double travel = t_leg * (1.0 + s->cfg.travel_noise * (2.0 * u - 1.0));
     b->pos = (int)((pos + 1) % m);
     b->stop_idx = (int)network_route_stop(s->net, route, (size_t)b->pos);
+
+    b->motion_moving = 1;
+    b->motion_route = (int)route;
+    b->motion_leg_index = (int)pos;
+    b->motion_from_stop = from_stop;
+    b->motion_to_stop = b->stop_idx;
+    b->motion_depart_s = s->now_s;
+    b->motion_arrive_s = s->now_s + travel;
 
     sim_push_event(s, s->now_s + travel, SIM_EVT_ARRIVE, bus_id, b->epoch, b->route, NULL);
 }
@@ -457,15 +572,19 @@ static void generate_arrivals_for_slice(Sim *s, double t) {
             batch[k].ride_stops = 1 + (int)(demand_hash(seed, (uint64_t)day, key, (uint64_t)(20000 + k)) % (uint64_t)max_ride);
         }
 
-        stop_add_pending(s, stop_idx, batch, (size_t)count);
+        if (stop_add_pending(s, stop_idx, batch, (size_t)count) == STATUS_OK) {
+            if (hour >= 0 && hour < 24) {
+                s->stops[stop_idx].hour_arrivals[hour] += (size_t)count;
+            }
+        }
         free(batch);
     }
 }
 
-static void run_reallocation_decision(Sim *s, double t_min) {
+static size_t run_reallocation_decision(Sim *s, double t_min) {
     size_t n_routes = network_route_count(s->net);
     FleetBus *snap = (FleetBus *)malloc(s->n_buses * sizeof(FleetBus));
-    if (!snap) return;
+    if (!snap) return 0;
 
     size_t n_snap = 0;
     for (size_t i = 0; i < s->n_buses; i++) {
@@ -494,7 +613,7 @@ static void run_reallocation_decision(Sim *s, double t_min) {
     if (n_snap < n_routes) {
         sim_log_msg(s, "reallocation decision skipped (only %zu buses active)", n_snap);
         free(snap);
-        return;
+        return 0;
     }
 
     s->stats.decisions++;
@@ -506,7 +625,7 @@ static void run_reallocation_decision(Sim *s, double t_min) {
 
     if (!demands || !cycles || !c_cur || !targets) {
         free(snap); free(demands); free(cycles); free(c_cur); free(targets);
-        return;
+        return 0;
     }
 
     int hour = (int)floor(t_min / 60.0);
@@ -559,6 +678,7 @@ static void run_reallocation_decision(Sim *s, double t_min) {
 
     double proxy_cur = fleet_wait_proxy_s(demands, cycles, c_cur, n_routes);
     double proxy_new = fleet_wait_proxy_s(demands, cycles, targets, n_routes);
+    size_t applied = 0;
 
     if (proxy_cur > 0.0 && (proxy_cur - proxy_new) / proxy_cur < s->cfg.realloc_hysteresis) {
         sim_log_msg(s, "reallocation decision: no change (improvement below hysteresis)");
@@ -567,7 +687,6 @@ static void run_reallocation_decision(Sim *s, double t_min) {
         size_t n_moves = 0;
         if (moves) {
             fleet_plan_moves(s->net, snap, n_snap, targets, n_routes, moves, n_snap, &n_moves);
-            size_t applied = 0;
             for (size_t m = 0; m < n_moves; m++) {
                 int bus_id = moves[m].bus_id;
                 SimBus *b = &s->buses[bus_id];
@@ -575,6 +694,7 @@ static void run_reallocation_decision(Sim *s, double t_min) {
                     b->pending_route = moves[m].to_route;
                     b->pending_entry = (int)moves[m].entry_stop;
                     b->pending_deadhead_s = moves[m].deadhead_s;
+                    b->pending_recompute = 0;
                     applied++;
                     sim_log_msg(s, "planned move: bus %d from route %d to route %d",
                                 bus_id, moves[m].from_route, moves[m].to_route);
@@ -594,6 +714,7 @@ static void run_reallocation_decision(Sim *s, double t_min) {
     free(cycles);
     free(c_cur);
     free(targets);
+    return applied;
 }
 
 static void emergency_dispatch(Sim *s, size_t flagged_stop) {
@@ -630,10 +751,18 @@ static void emergency_dispatch(Sim *s, size_t flagged_stop) {
     free(cands);
 
     SimBus *b = &s->buses[chosen_bus_id];
+    int from_stop = b->stop_idx;
     b->state = SIM_BUS_DEADHEAD;
     b->route = (int)target_route;
     b->stop_idx = entry_stop;
     b->pending_entry = entry_stop;
+    b->motion_moving = 1;
+    b->motion_route = (int)target_route;
+    b->motion_leg_index = -1;
+    b->motion_from_stop = from_stop;
+    b->motion_to_stop = entry_stop;
+    b->motion_depart_s = s->now_s;
+    b->motion_arrive_s = s->now_s + deadhead_s;
 
     s->stats.emergency_dispatches++;
     s->stats.moves_applied++;
@@ -820,6 +949,7 @@ void sim_config_default(SimConfig *c) {
     c->anomaly_dispatch = 0;
     c->anomaly = anomaly_config_default();
     c->initial_spacing = SIM_SPACING_BY_STOP;
+    c->reassign_mode = SIM_REASSIGN_DUMP;
 }
 
 Status sim_create(NetworkModel *net, const SimConfig *cfg, Sim **out) {
@@ -875,6 +1005,9 @@ Status sim_create(NetworkModel *net, const SimConfig *cfg, Sim **out) {
         return STATUS_ERR_INVALID;
     }
     if (c.initial_spacing != SIM_SPACING_BY_STOP && c.initial_spacing != SIM_SPACING_BY_TIME) {
+        return STATUS_ERR_INVALID;
+    }
+    if (c.reassign_mode != SIM_REASSIGN_DUMP && c.reassign_mode != SIM_REASSIGN_DRAIN) {
         return STATUS_ERR_INVALID;
     }
 
@@ -1014,6 +1147,13 @@ Status sim_create(NetworkModel *net, const SimConfig *cfg, Sim **out) {
                     b->stop_idx = (int)network_route_stop(net, r, (size_t)b->pos);
                     b->alight_cap = m;
                     b->alight = (int *)calloc(m, sizeof(int));
+                    b->motion_moving = 0;
+                    b->motion_route = (int)r;
+                    b->motion_leg_index = -1;
+                    b->motion_from_stop = b->stop_idx;
+                    b->motion_to_stop = b->stop_idx;
+                    b->motion_depart_s = s->now_s;
+                    b->motion_arrive_s = s->now_s;
 
                     sim_push_event(s, s->now_s, SIM_EVT_ARRIVE, (int)bus_idx, 0, (int)r, NULL);
                     bus_idx++;
@@ -1038,6 +1178,13 @@ Status sim_create(NetworkModel *net, const SimConfig *cfg, Sim **out) {
                     b->alight = (int *)calloc(m, sizeof(int));
 
                     double delay = T[k_star] - psi_j;
+                    b->motion_moving = 0;
+                    b->motion_route = (int)r;
+                    b->motion_leg_index = -1;
+                    b->motion_from_stop = b->stop_idx;
+                    b->motion_to_stop = b->stop_idx;
+                    b->motion_depart_s = s->now_s + delay;
+                    b->motion_arrive_s = s->now_s + delay;
                     sim_push_event(s, s->now_s + delay, SIM_EVT_ARRIVE, (int)bus_idx, 0, (int)r, NULL);
                     bus_idx++;
                 }
@@ -1052,6 +1199,13 @@ Status sim_create(NetworkModel *net, const SimConfig *cfg, Sim **out) {
                 b->stop_idx = (int)network_route_stop(net, r, (size_t)b->pos);
                 b->alight_cap = m;
                 b->alight = (int *)calloc(m, sizeof(int));
+                b->motion_moving = 0;
+                b->motion_route = (int)r;
+                b->motion_leg_index = -1;
+                b->motion_from_stop = b->stop_idx;
+                b->motion_to_stop = b->stop_idx;
+                b->motion_depart_s = s->now_s;
+                b->motion_arrive_s = s->now_s;
 
                 sim_push_event(s, s->now_s, SIM_EVT_ARRIVE, (int)bus_idx, 0, (int)r, NULL);
                 bus_idx++;
@@ -1064,6 +1218,13 @@ Status sim_create(NetworkModel *net, const SimConfig *cfg, Sim **out) {
         s->buses[i].state = SIM_BUS_RESERVE;
         s->buses[i].route = -1;
         s->buses[i].stop_idx = c.depot_stop;
+        s->buses[i].motion_moving = 0;
+        s->buses[i].motion_route = -1;
+        s->buses[i].motion_leg_index = -1;
+        s->buses[i].motion_from_stop = c.depot_stop;
+        s->buses[i].motion_to_stop = c.depot_stop;
+        s->buses[i].motion_depart_s = s->now_s;
+        s->buses[i].motion_arrive_s = s->now_s;
     }
 
     /* Schedule initial slice event at start_min */
@@ -1182,6 +1343,12 @@ Status sim_inject_arrivals(Sim *s, size_t stop, double time_s, int count, int ri
     }
 
     Status st = stop_add_pending(s, stop, batch, (size_t)count);
+    if (st == STATUS_OK) {
+        int h = (int)floor(time_s / 3600.0);
+        if (h >= 0 && h < 24) {
+            s->stops[stop].hour_arrivals[h] += (size_t)count;
+        }
+    }
     free(batch);
     return st;
 }
@@ -1417,4 +1584,110 @@ size_t sim_log_count(const Sim *s) {
 const char *sim_log_line(const Sim *s, size_t i) {
     if (!s || i >= s->log_count) return NULL;
     return s->log_lines[i];
+}
+
+Status sim_request_move(Sim *s, int bus_id, int to_route) {
+    if (!s) return STATUS_ERR_NULL;
+    if (bus_id < 0 || (size_t)bus_id >= s->n_buses) return STATUS_ERR_INVALID;
+
+    SimBus *b = &s->buses[bus_id];
+    if (b->state != SIM_BUS_RUNNING || b->pending_route != -2) {
+        return STATUS_ERR_INVALID;
+    }
+
+    size_t n_routes = network_route_count(s->net);
+    if (to_route < -1 || to_route >= (int)n_routes) {
+        return STATUS_ERR_INVALID;
+    }
+    if (to_route == b->route) {
+        return STATUS_ERR_INVALID;
+    }
+    if (to_route >= 0 && s->n_stops >= 2 && network_stop_time_s(s->net, 0, 1) < 0.0) {
+        return STATUS_ERR_INVALID;
+    }
+
+    b->pending_route = to_route;
+    b->pending_entry = -1;
+    b->pending_deadhead_s = 0.0;
+    b->pending_recompute = 1;
+    sim_log_msg(s, "move requested: bus %d from route %d to route %d", bus_id, b->route, to_route);
+    return STATUS_OK;
+}
+
+Status sim_set_policy(Sim *s, SimPolicy policy, const DemandPredictor *predictor) {
+    if (!s) return STATUS_ERR_NULL;
+    if (policy != SIM_POLICY_FIXED_EQUAL &&
+        policy != SIM_POLICY_FIXED_PROPORTIONAL &&
+        policy != SIM_POLICY_GREEDY_SPEC &&
+        policy != SIM_POLICY_GREEDY_MARGINAL) {
+        return STATUS_ERR_INVALID;
+    }
+    if ((policy == SIM_POLICY_GREEDY_SPEC || policy == SIM_POLICY_GREEDY_MARGINAL) &&
+        s->n_stops >= 2 && network_stop_time_s(s->net, 0, 1) < 0.0) {
+        return STATUS_ERR_INVALID;
+    }
+
+    s->cfg.policy = policy;
+    s->cfg.predictor = predictor;
+    s->last_decision_min = s->now_s / 60.0;
+    sim_log_msg(s, "policy set to %d", (int)policy);
+    return STATUS_OK;
+}
+
+Status sim_force_decision(Sim *s, size_t *moves_applied) {
+    if (!s) return STATUS_ERR_NULL;
+    if (s->cfg.policy != SIM_POLICY_GREEDY_SPEC &&
+        s->cfg.policy != SIM_POLICY_GREEDY_MARGINAL) {
+        return STATUS_ERR_INVALID;
+    }
+
+    double t_min = s->now_s / 60.0;
+    size_t applied = run_reallocation_decision(s, t_min);
+    s->last_decision_min = t_min;
+    if (moves_applied) {
+        *moves_applied = applied;
+    }
+    return STATUS_OK;
+}
+
+int sim_rain_active(const Sim *s) {
+    if (!s) return 0;
+    return s->cfg.rain ? 1 : 0;
+}
+
+int sim_event_active(const Sim *s, size_t stop) {
+    if (!s || stop >= s->n_stops) return 0;
+    return s->stops[stop].is_event_active ? 1 : 0;
+}
+
+SimPolicy sim_policy(const Sim *s) {
+    if (!s) return SIM_POLICY_FIXED_EQUAL;
+    return s->cfg.policy;
+}
+
+size_t sim_stop_hour_arrivals(const Sim *s, size_t stop, int hour) {
+    if (!s || stop >= s->n_stops || hour < 0 || hour > 23) return 0;
+    return s->stops[stop].hour_arrivals[hour];
+}
+
+Status sim_bus_motion(const Sim *s, size_t bus, SimBusMotion *out) {
+    if (!s || !out) return STATUS_ERR_NULL;
+    if (bus >= s->n_buses) return STATUS_ERR_INVALID;
+
+    const SimBus *b = &s->buses[bus];
+    out->moving = b->motion_moving;
+    out->route = b->motion_route;
+    out->leg_index = b->motion_leg_index;
+    out->from_stop = b->motion_from_stop;
+    out->to_stop = b->motion_to_stop;
+    out->depart_s = b->motion_depart_s;
+    out->arrive_s = b->motion_arrive_s;
+    return STATUS_OK;
+}
+
+Status sim_set_loop_observer(Sim *s, SimLoopFn fn, void *ctx) {
+    if (!s) return STATUS_ERR_NULL;
+    s->loop_fn = fn;
+    s->loop_ctx = ctx;
+    return STATUS_OK;
 }

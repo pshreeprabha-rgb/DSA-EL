@@ -35,7 +35,7 @@ OBJS = $(patsubst src/%.c,$(BUILD_DIR)/src/%.o,$(SRCS))
 TEST_SRCS = tests/test_linkedlist.c tests/test_stack.c tests/test_queue.c tests/test_tree.c tests/test_heap.c tests/test_avl.c tests/test_hashtable.c tests/test_types.c \
             tests/test_graph.c tests/test_pathfind.c tests/test_reroute.c tests/test_traffic_sim.c tests/test_traffic_client.c tests/test_osm_loader.c \
             tests/test_graph_scc.c tests/test_demand_model.c tests/test_ai_inference.c tests/test_ai_demand.c \
-            tests/test_network.c tests/test_fleet_alloc.c tests/test_anomaly.c tests/test_sim.c
+            tests/test_network.c tests/test_fleet_alloc.c tests/test_anomaly.c tests/test_sim.c tests/test_sim_ext.c
 TEST_BINS = $(patsubst tests/%.c,$(BUILD_DIR)/tests/%$(EXE),$(TEST_SRCS))
 
 .PHONY: all test asan valgrind clean cli

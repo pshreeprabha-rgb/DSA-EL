@@ -153,6 +153,8 @@ static void usage(const char *prog) {
         "    --realloc-interval R     Reallocation interval in min (default: 30)\n"
         "    --realloc-hysteresis H   Hysteresis threshold (default: 0.02)\n"
         "    --anomaly none|detect|dispatch Anomaly detection mode (default: none)\n"
+        "    --spacing stop|time        Initial bus spacing (default: time)\n"
+        "    --reassign dump|drain      Reassignment mode (default: drain)\n"
         "    --log                    Print detailed event log\n"
         "  sim-compare [opts]         Multi-policy simulation comparison\n"
         "    (accepts same scenario and network flags as sim-run)\n\n");
@@ -1800,6 +1802,7 @@ static int cmd_sim_run(int argc, char **argv) {
     int depot_stop = 0;
     int anomaly_mode = 0; /* 0=none, 1=detect, 2=dispatch */
     int spacing = SIM_SPACING_BY_TIME;
+    int reassign_mode = SIM_REASSIGN_DRAIN;
     int print_log = 0;
 
     #define MAX_CLI_SCENARIOS 64
@@ -1862,6 +1865,10 @@ static int cmd_sim_run(int argc, char **argv) {
             const char *sp = argv[++i];
             if (strcmp(sp, "stop") == 0) spacing = SIM_SPACING_BY_STOP;
             else if (strcmp(sp, "time") == 0) spacing = SIM_SPACING_BY_TIME;
+        } else if (strcmp(argv[i], "--reassign") == 0 && i + 1 < argc) {
+            const char *rm_s = argv[++i];
+            if (strcmp(rm_s, "dump") == 0) reassign_mode = SIM_REASSIGN_DUMP;
+            else if (strcmp(rm_s, "drain") == 0) reassign_mode = SIM_REASSIGN_DRAIN;
         } else if (strcmp(argv[i], "--log") == 0) {
             print_log = 1;
         } else if (strcmp(argv[i], "--rain-at") == 0 && i + 1 < argc) {
@@ -2080,6 +2087,7 @@ static int cmd_sim_run(int argc, char **argv) {
     scfg.anomaly_detect = (anomaly_mode >= 1) ? 1 : 0;
     scfg.anomaly_dispatch = (anomaly_mode >= 2) ? 1 : 0;
     scfg.initial_spacing = spacing;
+    scfg.reassign_mode = reassign_mode;
 
     double *prop_weights = NULL;
     if (policy == SIM_POLICY_FIXED_PROPORTIONAL) {
@@ -2123,6 +2131,7 @@ static int cmd_sim_run(int argc, char **argv) {
     printf("Predictor:           %s\n", pred_str);
     printf("Realloc Interval:    %.1f min (Hysteresis: %.2f)\n", realloc_interval, hysteresis);
     printf("Spacing:             %s\n", (spacing == SIM_SPACING_BY_TIME) ? "by-time" : "by-stop");
+    printf("Reassign Mode:       %s\n", (reassign_mode == SIM_REASSIGN_DRAIN) ? "drain" : "dump");
     printf("Anomaly Mode:        %s\n", (anomaly_mode == 2) ? "detect+dispatch" : (anomaly_mode == 1 ? "detect" : "none"));
     printf("Scenarios Scheduled: %zu\n", n_scenarios);
 
@@ -2226,6 +2235,7 @@ static int cmd_sim_compare(int argc, char **argv) {
     int depot_stop = 0;
     int anomaly_mode = 0;
     int spacing = SIM_SPACING_BY_TIME;
+    int reassign_mode = SIM_REASSIGN_DRAIN;
 
     CliScenario scenarios[MAX_CLI_SCENARIOS];
     size_t n_scenarios = 0;
@@ -2282,6 +2292,10 @@ static int cmd_sim_compare(int argc, char **argv) {
             const char *sp = argv[++i];
             if (strcmp(sp, "stop") == 0) spacing = SIM_SPACING_BY_STOP;
             else if (strcmp(sp, "time") == 0) spacing = SIM_SPACING_BY_TIME;
+        } else if (strcmp(argv[i], "--reassign") == 0 && i + 1 < argc) {
+            const char *rm_s = argv[++i];
+            if (strcmp(rm_s, "dump") == 0) reassign_mode = SIM_REASSIGN_DUMP;
+            else if (strcmp(rm_s, "drain") == 0) reassign_mode = SIM_REASSIGN_DRAIN;
         } else if (strcmp(argv[i], "--rain-at") == 0 && i + 1 < argc) {
             double t = cli_parse_time_min(argv[++i]);
             if (n_scenarios + 2 <= MAX_CLI_SCENARIOS) {
@@ -2479,6 +2493,7 @@ static int cmd_sim_compare(int argc, char **argv) {
         scfg.anomaly_detect = (anomaly_mode >= 1) ? 1 : 0;
         scfg.anomaly_dispatch = (anomaly_mode >= 2) ? 1 : 0;
         scfg.initial_spacing = spacing;
+        scfg.reassign_mode = reassign_mode;
 
         double *pw = NULL;
         if (pols[p].is_prop) {
@@ -2505,6 +2520,7 @@ static int cmd_sim_compare(int argc, char **argv) {
 
     printf("\n=== POLICY COMPARISON SUMMARY ===\n");
     printf("Spacing:                  %s\n", (spacing == SIM_SPACING_BY_TIME) ? "by-time" : "by-stop");
+    printf("Reassign Mode:            %s\n", (reassign_mode == SIM_REASSIGN_DRAIN) ? "drain" : "dump");
     printf("%-24s | %-8s | %-13s | %-13s | %-12s | %-12s | %-8s | %-12s | %-5s | %-5s | %-10s\n",
            "Policy", "Boarded", "Still Waiting", "Mean Wait (s)", "P95 Wait (s)", "Max Wait (s)",
            "Full Bus", "Forced Dumps", "Moves", "Flags", "Dispatches");
