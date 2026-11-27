@@ -541,4 +541,18 @@ The simulation engine is single-threaded and strictly deterministic. Given the s
   - `sim_set_loop_observer(s, fn, ctx)`: registers a callback fired upon completing `m` consecutive legs of a `RUNNING` bus; runs synchronously inside `sim_run_until()` on the caller's thread so the caller's lock covers it.
 - **Test Suite**: Added 10 unit/integration tests in `tests/test_sim_ext.c` (23 suites total in `Makefile`). Saved `sim-compare` dump vs. drain outputs in [part3c1_results.txt](file:///home/prabhashetty/transport/docs/part3c1_results.txt).
 
+---
+
+### 13. Part 3C-2: Multi-Seed Evaluation Harness, Cold-Start & Anomaly Validation (`eval.h`, `eval.c`)
+- **Statistical Module (`eval.h` / `eval.c`)**:
+  - `eval_t_crit_975(df)`: two-sided 95% Student $t$ critical value table (conservative next-lower tabulated `df`).
+  - `eval_mean_sd`, `eval_paired_stats`, `eval_poisson_tail_ge`, `eval_median`.
+  - Paired scenario runner (`eval_run_single`) with `SIM_SPACING_BY_TIME`, `SIM_REASSIGN_DRAIN`, `graph_reset_traffic`, and blocked-edge assertion before every run.
+  - Analytic anomaly expectation (`eval_anomaly_expected_flags`) summing `eval_poisson_tail_ge(lambda_w, k_w)` over the 63 closed windows (`[360, 1305)`) and all 60 stops.
+- **CLI Commands & Scripts**:
+  - `transport_cli eval-run [--quick] [--seeds S] [--base-seed B] [--scenarios ...] [--policies ...] [--out-dir D] [--sensitivity] [--diagnostic]`: runs paired comparisons, writes `runs_<scenario>.csv`, `summary_<scenario>.csv`, and `summary.json` (LF only, byte-identical across repeated runs).
+  - `transport_cli coldstart-prepare` & `coldstart-eval` + [run_coldstart.sh](file:///home/prabhashetty/transport/scripts/run_coldstart.sh) + `--holdout-stops-file` in [train_model.py](file:///home/prabhashetty/transport/ml/train_model.py): holds out 15 of 60 stops (`i % 4 == 3`) from the training CSV while keeping the day split and test CSV unchanged. On the 15 unseen stops (`12,960` test rows across `36` test days), `random_forest` achieved `MAE(lambda) = 1.920` vs `moving_average` `MAE(lambda) = 2.778` (paired per-day `RF - MA` mean `-0.8581`, 95% CI `[-1.0896, -0.6266]`, `35` wins / `0` ties / `1` loss).
+  - `transport_cli anomaly-eval [--seeds S] [--thresholds 3,3.5,4,5] [--out-dir D]`: evaluates `no-event` false alarms and `event` (`17:00-19:00` at `stop 13`) detection rate, median delay, and precision, and verifies `cooldown = 0, threshold = 3.0` against the analytic Poisson expectation within 4 SE.
+- **Makefile Targets**: `make eval-quick` (5-seed `eval-run --quick`) and `make eval` (full 30-seed `eval-run`, `run_coldstart.sh`, and `anomaly-eval`). Results saved in [part3c2_results.txt](file:///home/prabhashetty/transport/docs/part3c2_results.txt).
+
 

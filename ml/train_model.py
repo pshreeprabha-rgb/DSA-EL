@@ -66,7 +66,7 @@ def extract_features(df):
         type_hub, type_office, type_market, type_res, stop_scales
     ])
 
-def split_history_by_days(history_path, train_path, test_path, test_frac, seed, exclude_event_days):
+def split_history_by_days(history_path, train_path, test_path, test_frac, seed, exclude_event_days, holdout_nodes=None):
     """
     Performs atomic day-level stratified split.
     """
@@ -158,8 +158,15 @@ def split_history_by_days(history_path, train_path, test_path, test_frac, seed, 
     train_lines = []
     test_lines = []
 
+    stop_col = col_idx.get("stop_node", None)
     for d in sorted(train_days):
-        train_lines.extend(day_info[d]["lines"])
+        if holdout_nodes and stop_col is not None:
+            for line in day_info[d]["lines"]:
+                parts = line.strip().split(",")
+                if int(parts[stop_col]) not in holdout_nodes:
+                    train_lines.append(line)
+        else:
+            train_lines.extend(day_info[d]["lines"])
     for d in sorted(test_days):
         test_lines.extend(day_info[d]["lines"])
 
@@ -357,18 +364,30 @@ def main():
     parser.add_argument("--out-metrics", default="data/ml_metrics.json", help="Metrics JSON output path")
     parser.add_argument("--golden-rows", type=int, default=300, help="Number of golden rows")
     parser.add_argument("--exclude-event-days-from-train", action="store_true", help="Exclude event days from train")
+    parser.add_argument("--holdout-stops-file", default=None, help="Optional file of holdout stop_node IDs to drop from train")
 
     args = parser.parse_args()
+
+    holdout_nodes = None
+    if args.holdout_stops_file:
+        with open(args.holdout_stops_file, "r", encoding="utf-8") as hf:
+            holdout_nodes = {int(line.strip()) for line in hf if line.strip()}
 
     train_days_cnt = 0
     test_days_cnt = 0
     if args.history:
         train_days_cnt, test_days_cnt = split_history_by_days(
-            args.history, args.train, args.test, args.test_frac, args.split_seed, args.exclude_event_days_from_train
+            args.history, args.train, args.test, args.test_frac, args.split_seed, args.exclude_event_days_from_train, holdout_nodes
         )
 
     print(f"[Stage: Read CSV] Reading train dataset: {args.train}", flush=True)
     train_df = pd.read_csv(args.train)
+    if holdout_nodes is not None:
+        before_rows = len(train_df)
+        train_df = train_df[~train_df["stop_node"].isin(holdout_nodes)].reset_index(drop=True)
+        if before_rows != len(train_df):
+            train_df.to_csv(args.train, index=False, lineterminator="\n")
+        print(f"[Stage: Holdout] Filtered {before_rows - len(train_df)} rows for {len(holdout_nodes)} holdout stops ({len(train_df)} train rows).", flush=True)
     print(f"[Stage: Read CSV] Reading test dataset: {args.test}", flush=True)
     test_df = pd.read_csv(args.test)
 

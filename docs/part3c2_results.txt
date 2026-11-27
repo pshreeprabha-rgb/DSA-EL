@@ -1,0 +1,91 @@
+================================================================================
+  PART 3C-2 VERIFICATION RESULTS: MULTI-SEED HARNESS, COLD-START & ANOMALY
+================================================================================
+
+=== 1. EVAL-RUN --QUICK (5 SEEDS: 1000..1004, BY-TIME, DRAIN) ===
+$ ./build/transport_cli eval-run --quick --out-dir ../data/eval
+
+=== SCENARIO: normal (n=5, base_seed=1000, metric=mean_wait_incl_censored_s) ===
+Policy                  | Mean +- SD        | Diff vs fixed_equal [95% CI]   | W/T/L        | Significant
+------------------------+-------------------+--------------------------------+--------------+------------
+fixed_equal             | 832.54 +- 23.08   | base                           | -            | no
+fixed_proportional      | 682.47 +- 38.18   | -150.06 [-180.39, -119.74]     | 5/0/0        | yes
+greedy_spec_ma          | 808.65 +- 30.26   | -23.88 [-59.88, +12.11]        | 4/0/1        | no
+greedy_marginal_ma      | 783.68 +- 26.54   | -48.86 [-91.05, -6.68]         | 5/0/0        | yes
+greedy_marginal_rf      | 780.02 +- 38.20   | -52.51 [-114.11, +9.08]        | 5/0/0        | no
+greedy_marginal_oracle  | 787.29 +- 25.74   | -45.25 [-92.83, +2.34]         | 5/0/0        | no
+
+=== SCENARIO: rain-event (n=5, base_seed=1000, metric=mean_wait_incl_censored_s) ===
+Policy                  | Mean +- SD        | Diff vs fixed_equal [95% CI]   | W/T/L        | Significant
+------------------------+-------------------+--------------------------------+--------------+------------
+fixed_equal             | 2026.89 +- 171.04 | base                           | -            | no
+fixed_proportional      | 1328.59 +- 52.42  | -698.30 [-851.61, -544.99]     | 5/0/0        | yes
+greedy_spec_ma          | 1433.60 +- 78.40  | -593.29 [-829.75, -356.84]     | 5/0/0        | yes
+greedy_marginal_ma      | 1637.50 +- 113.92 | -389.39 [-626.95, -151.83]     | 5/0/0        | yes
+greedy_marginal_rf      | 1498.70 +- 119.39 | -528.19 [-763.87, -292.52]     | 5/0/0        | yes
+greedy_marginal_oracle  | 1526.97 +- 77.63  | -499.92 [-706.27, -293.57]     | 5/0/0        | yes
+
+=== SCENARIO: breakdown (n=5, base_seed=1000, metric=mean_wait_incl_censored_s) ===
+Policy                  | Mean +- SD        | Diff vs fixed_equal [95% CI]   | W/T/L        | Significant
+------------------------+-------------------+--------------------------------+--------------+------------
+fixed_equal             | 849.27 +- 23.79   | base                           | -            | no
+fixed_proportional      | 711.20 +- 39.80   | -138.06 [-174.94, -101.19]     | 5/0/0        | yes
+greedy_spec_ma          | 836.99 +- 42.58   | -12.28 [-51.93, +27.38]        | 4/0/1        | no
+greedy_marginal_ma      | 819.41 +- 43.40   | -29.85 [-85.17, +25.46]        | 4/0/1        | no
+greedy_marginal_rf      | 828.24 +- 37.97   | -21.02 [-74.14, +32.10]        | 3/0/2        | no
+greedy_marginal_oracle  | 810.46 +- 41.05   | -38.81 [-94.23, +16.61]        | 5/0/0        | no
+
+15 comparisons are made at 95 percent: about one false positive is expected; borderline results are inconclusive.
+
+
+=== 2. EVAL-RUN --DIAGNOSTIC --SEEDS 3 ===
+$ ./build/transport_cli eval-run --diagnostic --seeds 3
+
+=== DIAGNOSTIC (fixed_equal, n=3 seeds, base_seed=1000) ===
+Variant                | Mean (s)     | SD (s)       | 95% CI
+-----------------------+--------------+--------------+--------------------------
+cap=60,traffic=1       |       841.32 |         9.30 | [818.21, 864.42]
+cap=60,traffic=0       |       485.78 |        20.19 | [435.63, 535.93]
+cap=1000,traffic=1     |       687.08 |        11.59 | [658.29, 715.87]
+cap=1000,traffic=0     |       487.99 |        19.21 | [440.28, 535.71]
+Reference fixed_equal alloc proxy at 09:00 (weekday, dry): 308.51 s
+
+
+=== 3. COLD-START EXPERIMENT (scripts/run_coldstart.sh) ===
+$ bash scripts/run_coldstart.sh
+
+=== COLD-START EVALUATION (train_rows=90720, holdout_stops=15) ===
+--- SEEN STOPS (test_rows=38880) ---
+Model              |     Rows |      MAE |     RMSE | MAE(lambda)
+-------------------+----------+----------+----------+------------
+moving_average     |    38880 |    2.191 |    3.595 |       0.737
+ols_per_band       |    38880 |    4.607 |    8.141 |       4.074
+random_forest      |    38880 |    2.672 |    4.568 |       1.441
+
+--- UNSEEN STOPS (test_rows=12960) ---
+Model              |     Rows |      MAE |     RMSE | MAE(lambda)
+-------------------+----------+----------+----------+------------
+moving_average     |    12960 |    3.452 |    6.068 |       2.778
+ols_per_band       |    12960 |    4.108 |    6.433 |       3.562
+random_forest      |    12960 |    2.914 |    5.005 |       1.920
+
+Unseen stops per-day MAE(lambda), RF - MA (n=36 days): mean=-0.8581, sd=0.6803, 95% CI [-1.0896, -0.6266], wins=35 ties=0 losses=1
+
+
+=== 4. ANOMALY EVALUATION (anomaly-eval --seeds 5) ===
+$ ./build/transport_cli anomaly-eval --seeds 5
+
+=== ANOMALY EVALUATION (n=5 seeds, base_seed=1000, event_stop=13) ===
+Threshold | False Alarms/Day     | Detection Rate | Median Delay(m)  | Precision
+----------+----------------------+----------------+------------------+----------
+3.00      | 16.20 +- 2.77        | 1.000          | 15.00            | 0.111
+3.50      | 5.60 +- 1.67         | 1.000          | 15.00            | 0.263
+4.00      | 1.40 +- 0.55         | 1.000          | 15.00            | 0.588
+5.00      | 0.20 +- 0.45         | 1.000          | 15.00            | 0.909
+
+Analytic validation (cooldown=0, threshold=3.0, no-event):
+  analytic expected: 16.4623
+  observed mean:     16.2000
+  standard error:    1.2410
+  |obs - expected|:  0.2623 (0.21 SE, limit 4.00 SE) -> PASS
+

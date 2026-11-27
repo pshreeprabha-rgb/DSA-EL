@@ -14,6 +14,7 @@
 #include "fleet_alloc.h"
 #include "anomaly.h"
 #include "sim.h"
+#include "eval.h"
 #include "common.h"
 
 #include <stdio.h>
@@ -21,7 +22,18 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <errno.h>
 #include <sys/stat.h>
+
+#ifdef __has_include
+#  if __has_include(<cjson/cJSON.h>)
+#    include <cjson/cJSON.h>
+#  else
+#    include <cJSON.h>
+#  endif
+#else
+#  include <cjson/cJSON.h>
+#endif
 
 /* Global or configured data directory */
 static const char *g_data_dir = "data";
@@ -157,7 +169,24 @@ static void usage(const char *prog) {
         "    --reassign dump|drain      Reassignment mode (default: drain)\n"
         "    --log                    Print detailed event log\n"
         "  sim-compare [opts]         Multi-policy simulation comparison\n"
-        "    (accepts same scenario and network flags as sim-run)\n\n");
+        "    (accepts same scenario and network flags as sim-run)\n"
+        "  eval-run [opts]            Multi-seed paired evaluation harness\n"
+        "    --seeds S                Number of seeds (default: 30; 10 for --diagnostic)\n"
+        "    --base-seed B            Starting seed (default: 1000)\n"
+        "    --scenarios LIST         normal,rain-event,breakdown\n"
+        "    --policies LIST          Comma-separated policy names\n"
+        "    --out-dir D              Output directory (default: data/eval)\n"
+        "    --quick                  Run 5 seeds\n"
+        "    --sensitivity            Run hysteresis/interval sensitivity sweeps\n"
+        "    --diagnostic             Run capacity/traffic diagnostic on fixed_equal\n"
+        "  coldstart-prepare [opts]   Select 15 holdout stops out of 60\n"
+        "    --out-dir D              Output directory (default: data/coldstart)\n"
+        "  coldstart-eval [opts]      Evaluate demand models on seen vs unseen stops\n"
+        "    --train/--test/--model/--holdout paths\n"
+        "  anomaly-eval [opts]        Evaluate anomaly detector & analytic validation\n"
+        "    --seeds S                Number of seeds (default: 30)\n"
+        "    --thresholds LIST        Comma-separated thresholds (default: 3,3.5,4,5)\n"
+        "    --out-dir D              Output directory (default: data/eval)\n\n");
 }
 
 /* ---- 6-node demo graph ---- */
@@ -2559,6 +2588,1214 @@ static int cmd_sim_compare(int argc, char **argv) {
     return 0;
 }
 
+/* ---- Part 3C-2: eval-run, coldstart-prepare, coldstart-eval, anomaly-eval ---- */
+
+static int cli_mkdir_p(const char *path) {
+    if (!path || !path[0]) return -1;
+    char buf[512];
+    size_t len = strlen(path);
+    if (len >= sizeof(buf)) return -1;
+    memcpy(buf, path, len + 1);
+    for (size_t i = 1; i < len; i++) {
+        if (buf[i] == '/') {
+            buf[i] = '\0';
+            if (mkdir(buf, 0755) != 0 && errno != EEXIST) {
+                return -1;
+            }
+            buf[i] = '/';
+        }
+    }
+    if (mkdir(buf, 0755) != 0 && errno != EEXIST) {
+        return -1;
+    }
+    return 0;
+}
+
+static cJSON *cli_read_json_file(const char *path) {
+    if (!path) return NULL;
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return NULL; }
+    long sz = ftell(f);
+    if (sz <= 0 || sz > 16 * 1024 * 1024) { fclose(f); return NULL; }
+    rewind(f);
+    char *buf = (char *)malloc((size_t)sz + 1);
+    if (!buf) { fclose(f); return NULL; }
+    size_t nr = fread(buf, 1, (size_t)sz, f);
+    fclose(f);
+    buf[nr] = '\0';
+    cJSON *obj = cJSON_Parse(buf);
+    free(buf);
+    return obj;
+}
+
+static int cli_write_json_file(const char *path, const cJSON *root) {
+    if (!path || !root) return -1;
+    char *printed = cJSON_Print(root);
+    if (!printed) return -1;
+    FILE *f = fopen(path, "wb");
+    if (!f) { free(printed); return -1; }
+    size_t len = strlen(printed);
+    fwrite(printed, 1, len, f);
+    if (len == 0 || printed[len - 1] != '\n') {
+        fputc('\n', f);
+    }
+    fclose(f);
+    free(printed);
+    return 0;
+}
+
+static void cli_update_summary_json_field(const char *summary_path, const char *key, cJSON *obj) {
+    if (!summary_path || !key || !obj) {
+        cJSON_Delete(obj);
+        return;
+    }
+    cJSON *root = cli_read_json_file(summary_path);
+    if (!root) {
+        cJSON_Delete(obj);
+        return;
+    }
+    cJSON_DeleteItemFromObjectCaseSensitive(root, key);
+    cJSON_AddItemToObject(root, key, obj);
+    cli_write_json_file(summary_path, root);
+    cJSON_Delete(root);
+}
+
+static int parse_scenario_list(const char *str, EvalScenario *out, size_t max_out, size_t *n_out) {
+    char buf[256];
+    snprintf(buf, sizeof(buf), "%s", str);
+    size_t n = 0;
+    char *p = buf;
+    while (p && *p) {
+        char *comma = strchr(p, ',');
+        if (comma) *comma = '\0';
+        if (n < max_out) {
+            if (strcmp(p, "normal") == 0) out[n++] = EVAL_SCEN_NORMAL;
+            else if (strcmp(p, "rain-event") == 0) out[n++] = EVAL_SCEN_RAIN_EVENT;
+            else if (strcmp(p, "breakdown") == 0) out[n++] = EVAL_SCEN_BREAKDOWN;
+            else return -1;
+        }
+        p = comma ? (comma + 1) : NULL;
+    }
+    *n_out = n;
+    return (n > 0) ? 0 : -1;
+}
+
+static int parse_policy_list(const char *str, EvalPolicyId *out, size_t max_out, size_t *n_out) {
+    char buf[512];
+    snprintf(buf, sizeof(buf), "%s", str);
+    size_t n = 0;
+    char *p = buf;
+    while (p && *p) {
+        char *comma = strchr(p, ',');
+        if (comma) *comma = '\0';
+        if (n < max_out) {
+            if (strcmp(p, "fixed_equal") == 0) out[n++] = EVAL_POL_FIXED_EQUAL;
+            else if (strcmp(p, "fixed_proportional") == 0) out[n++] = EVAL_POL_FIXED_PROPORTIONAL;
+            else if (strcmp(p, "greedy_spec_ma") == 0) out[n++] = EVAL_POL_GREEDY_SPEC_MA;
+            else if (strcmp(p, "greedy_marginal_ma") == 0) out[n++] = EVAL_POL_GREEDY_MARGINAL_MA;
+            else if (strcmp(p, "greedy_marginal_rf") == 0) out[n++] = EVAL_POL_GREEDY_MARGINAL_RF;
+            else if (strcmp(p, "greedy_marginal_oracle") == 0) out[n++] = EVAL_POL_GREEDY_MARGINAL_ORACLE;
+            else return -1;
+        }
+        p = comma ? (comma + 1) : NULL;
+    }
+    *n_out = n;
+    return (n > 0) ? 0 : -1;
+}
+
+static int cmd_eval_run(int argc, char **argv) {
+    size_t n_seeds = 30;
+    int seeds_explicit = 0;
+    uint64_t base_seed = 1000ULL;
+    const char *scen_str = "normal,rain-event,breakdown";
+    const char *pol_str = "fixed_equal,fixed_proportional,greedy_spec_ma,greedy_marginal_ma,greedy_marginal_rf,greedy_marginal_oracle";
+    const char *out_dir = NULL;
+    int quick = 0;
+    int do_sensitivity = 0;
+    int do_diagnostic = 0;
+
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "--seeds") == 0 && i + 1 < argc) {
+            n_seeds = (size_t)strtoul(argv[++i], NULL, 10);
+            seeds_explicit = 1;
+        } else if (strcmp(argv[i], "--base-seed") == 0 && i + 1 < argc) {
+            base_seed = (uint64_t)strtoull(argv[++i], NULL, 10);
+        } else if (strcmp(argv[i], "--scenarios") == 0 && i + 1 < argc) {
+            scen_str = argv[++i];
+        } else if (strcmp(argv[i], "--policies") == 0 && i + 1 < argc) {
+            pol_str = argv[++i];
+        } else if (strcmp(argv[i], "--out-dir") == 0 && i + 1 < argc) {
+            out_dir = argv[++i];
+        } else if (strcmp(argv[i], "--quick") == 0) {
+            quick = 1;
+        } else if (strcmp(argv[i], "--sensitivity") == 0) {
+            do_sensitivity = 1;
+        } else if (strcmp(argv[i], "--diagnostic") == 0) {
+            do_diagnostic = 1;
+        }
+    }
+
+    if (quick && !seeds_explicit) {
+        n_seeds = 5;
+    } else if (do_diagnostic && !seeds_explicit && !quick) {
+        n_seeds = 10;
+    }
+    if (n_seeds < 2) {
+        fprintf(stderr, "Error: --seeds must be >= 2\n");
+        return 1;
+    }
+
+    char resolved_out[512];
+    if (!out_dir) {
+        snprintf(resolved_out, sizeof(resolved_out), "%s/eval", g_data_dir);
+        out_dir = resolved_out;
+    }
+    if (cli_mkdir_p(out_dir) != 0) {
+        fprintf(stderr, "Error: failed to create output directory %s\n", out_dir);
+        return 1;
+    }
+
+    char cache_path[512], train_path[512], model_path[512];
+    snprintf(cache_path, sizeof(cache_path), "%s/graph_cache.txt", g_data_dir);
+    snprintf(train_path, sizeof(train_path), "%s/demand_train.csv", g_data_dir);
+    snprintf(model_path, sizeof(model_path), "%s/demand_rf.txt", g_data_dir);
+
+    Graph *g = NULL;
+    if (graph_load(&g, cache_path) != STATUS_OK || !g) {
+        fprintf(stderr, "Error: failed to load graph cache from %s\n", cache_path);
+        return 1;
+    }
+
+    DemandStop *stops = NULL;
+    size_t n_stops = 0;
+    if (demand_stops_from_graph_anchored(g, 60, 42ULL, &stops, &n_stops) != STATUS_OK || !stops) {
+        fprintf(stderr, "Error: failed to extract 60 anchored stops\n");
+        graph_destroy(g);
+        return 1;
+    }
+
+    NetworkConfig ncfg;
+    network_config_default(&ncfg);
+    ncfg.n_routes = 6;
+    ncfg.build_matrix = 1;
+    NetworkModel *net = NULL;
+    if (network_build(g, stops, n_stops, &ncfg, &net) != STATUS_OK || !net) {
+        fprintf(stderr, "Error: failed to build 6-route network\n");
+        free(stops);
+        graph_destroy(g);
+        return 1;
+    }
+
+    if (do_diagnostic) {
+        const int caps[4] = {60, 60, 1000, 1000};
+        const int traffics[4] = {1, 0, 1, 0};
+        const char *vnames[4] = {
+            "cap=60,traffic=1",
+            "cap=60,traffic=0",
+            "cap=1000,traffic=1",
+            "cap=1000,traffic=0"
+        };
+
+        char diag_csv[1024];
+        snprintf(diag_csv, sizeof(diag_csv), "%s/diagnostic.csv", out_dir);
+        FILE *df = fopen(diag_csv, "wb");
+        if (!df) {
+            fprintf(stderr, "Error: failed to write %s\n", diag_csv);
+            network_destroy(net); free(stops); graph_destroy(g);
+            return 1;
+        }
+        fprintf(df, "variant,n,mean,sd,ci_lo,ci_hi\n");
+
+        printf("\n=== DIAGNOSTIC (fixed_equal, n=%zu seeds, base_seed=%llu) ===\n",
+               n_seeds, (unsigned long long)base_seed);
+        printf("%-22s | %-12s | %-12s | %s\n",
+               "Variant", "Mean (s)", "SD (s)", "95% CI");
+        printf("-----------------------+--------------+--------------+--------------------------\n");
+
+        double *vals = (double *)malloc(n_seeds * sizeof(double));
+        if (!vals) {
+            fclose(df); network_destroy(net); free(stops); graph_destroy(g);
+            return 1;
+        }
+
+        double t_crit = eval_t_crit_975(n_seeds - 1);
+        for (int v = 0; v < 4; v++) {
+            for (size_t i = 0; i < n_seeds; i++) {
+                SimStats st;
+                Status sst = eval_run_single(net, EVAL_SCEN_NORMAL, EVAL_POL_FIXED_EQUAL,
+                                             base_seed + (uint64_t)i, NULL, NULL, NULL,
+                                             36, 30.0, 0.02, caps[v], traffics[v], &st);
+                if (sst != STATUS_OK) {
+                    fprintf(stderr, "Error: diagnostic run failed (status %d)\n", (int)sst);
+                    free(vals); fclose(df); network_destroy(net); free(stops); graph_destroy(g);
+                    return 1;
+                }
+                vals[i] = st.mean_wait_incl_censored_s;
+            }
+            double mean = 0.0, sd = 0.0;
+            eval_mean_sd(vals, n_seeds, &mean, &sd);
+            double se = sd / sqrt((double)n_seeds);
+            double ci_lo = mean - t_crit * se;
+            double ci_hi = mean + t_crit * se;
+            printf("%-22s | %12.2f | %12.2f | [%.2f, %.2f]\n",
+                   vnames[v], mean, sd, ci_lo, ci_hi);
+            fprintf(df, "%s,%zu,%.9g,%.9g,%.9g,%.9g\n",
+                    vnames[v], n_seeds, mean, sd, ci_lo, ci_hi);
+        }
+        free(vals);
+        fclose(df);
+
+        double demands[6] = {0.0}, cycles[6] = {0.0};
+        int alloc_eq[6] = {0};
+        network_route_demands(net, NULL, 9, DAY_WEEKDAY, 0, NULL, 0, demands);
+        network_route_cycles(net, cycles);
+        fleet_targets_equal(6, 36, alloc_eq);
+        double proxy_09 = fleet_wait_proxy_s(demands, cycles, alloc_eq, 6);
+        printf("Reference fixed_equal alloc proxy at 09:00 (weekday, dry): %.2f s\n\n", proxy_09);
+
+        network_destroy(net);
+        free(stops);
+        graph_destroy(g);
+        return 0;
+    }
+
+    EvalScenario scens[EVAL_SCEN_COUNT];
+    size_t n_scens = 0;
+    if (parse_scenario_list(scen_str, scens, EVAL_SCEN_COUNT, &n_scens) != 0) {
+        fprintf(stderr, "Error: invalid --scenarios list: %s\n", scen_str);
+        network_destroy(net); free(stops); graph_destroy(g);
+        return 1;
+    }
+
+    EvalPolicyId pols[EVAL_POL_COUNT];
+    size_t n_pols = 0;
+    if (parse_policy_list(pol_str, pols, EVAL_POL_COUNT, &n_pols) != 0) {
+        fprintf(stderr, "Error: invalid --policies list: %s\n", pol_str);
+        network_destroy(net); free(stops); graph_destroy(g);
+        return 1;
+    }
+
+    int need_ma = 0, need_rf = 0;
+    for (size_t p = 0; p < n_pols; p++) {
+        if (pols[p] == EVAL_POL_FIXED_PROPORTIONAL ||
+            pols[p] == EVAL_POL_GREEDY_SPEC_MA ||
+            pols[p] == EVAL_POL_GREEDY_MARGINAL_MA) {
+            need_ma = 1;
+        }
+        if (pols[p] == EVAL_POL_GREEDY_MARGINAL_RF) {
+            need_rf = 1;
+        }
+    }
+    if (do_sensitivity) need_ma = 1;
+
+    DemandPredictor *dp_ma = NULL;
+    if (need_ma) {
+        dp_ma = cli_get_predictor("ma", train_path, model_path);
+        if (!dp_ma) {
+            fprintf(stderr, "Error: failed to load MA training data from %s\n", train_path);
+            network_destroy(net); free(stops); graph_destroy(g);
+            return 1;
+        }
+    }
+
+    DemandPredictor *dp_rf = NULL;
+    int rf_available = 1;
+    if (need_rf) {
+        dp_rf = cli_get_predictor("rf", train_path, model_path);
+        if (!dp_rf) {
+            printf("skipped: greedy_marginal_rf (model not loaded: %s)\n", model_path);
+            rf_available = 0;
+        }
+    }
+
+    double prop_weights[6] = {0.0};
+    if (dp_ma) {
+        eval_compute_prop_weights(net, dp_ma, prop_weights);
+    }
+
+    cJSON *j_root = cJSON_CreateObject();
+    cJSON *j_cfg = cJSON_CreateObject();
+    cJSON_AddNumberToObject(j_cfg, "seeds", (double)n_seeds);
+    cJSON_AddNumberToObject(j_cfg, "base_seed", (double)base_seed);
+    cJSON_AddNumberToObject(j_cfg, "stops", 60);
+    cJSON_AddNumberToObject(j_cfg, "routes", 6);
+    cJSON_AddNumberToObject(j_cfg, "buses", 36);
+    cJSON_AddStringToObject(j_cfg, "spacing", "time");
+    cJSON_AddStringToObject(j_cfg, "reassign", "drain");
+    cJSON_AddItemToObject(j_root, "config", j_cfg);
+    cJSON *j_scens = cJSON_CreateArray();
+    cJSON_AddItemToObject(j_root, "scenarios", j_scens);
+
+    double *metric_vals = (double *)calloc(n_pols * n_seeds, sizeof(double));
+    double *base_vals = (double *)calloc(n_seeds, sizeof(double));
+    if (!metric_vals || !base_vals) {
+        free(metric_vals); free(base_vals); cJSON_Delete(j_root);
+        if (dp_ma) dp_destroy(dp_ma);
+        if (dp_rf) dp_destroy(dp_rf);
+        network_destroy(net); free(stops); graph_destroy(g);
+        return 1;
+    }
+
+    for (size_t s_idx = 0; s_idx < n_scens; s_idx++) {
+        EvalScenario scen = scens[s_idx];
+        const char *sname = eval_scenario_name(scen);
+
+        char runs_path[1024], sum_path[1024];
+        snprintf(runs_path, sizeof(runs_path), "%s/runs_%s.csv", out_dir, sname);
+        snprintf(sum_path, sizeof(sum_path), "%s/summary_%s.csv", out_dir, sname);
+
+        FILE *rf = fopen(runs_path, "wb");
+        FILE *sf = fopen(sum_path, "wb");
+        if (!rf || !sf) {
+            fprintf(stderr, "Error: failed to open output CSVs in %s\n", out_dir);
+            if (rf) fclose(rf);
+            if (sf) fclose(sf);
+            free(metric_vals); free(base_vals); cJSON_Delete(j_root);
+            if (dp_ma) dp_destroy(dp_ma);
+            if (dp_rf) dp_destroy(dp_rf);
+            network_destroy(net); free(stops); graph_destroy(g);
+            return 1;
+        }
+
+        fprintf(rf, "scenario,policy,seed,mean_wait_boarded_s,mean_wait_incl_censored_s,p95_s,still_waiting,full_bus_events,moves_applied,deadhead_s,forced_dumps,anomaly_flags,emergency_dispatches\n");
+        fprintf(sf, "policy,n,mean,sd,diff_mean,diff_sd,diff_se,ci_lo,ci_hi,wins,ties,losses,significant\n");
+
+        int need_separate_base = 1;
+        size_t eq_idx = 0;
+        for (size_t p = 0; p < n_pols; p++) {
+            if (pols[p] == EVAL_POL_FIXED_EQUAL) {
+                need_separate_base = 0;
+                eq_idx = p;
+                break;
+            }
+        }
+
+        for (size_t i = 0; i < n_seeds; i++) {
+            uint64_t seed = base_seed + (uint64_t)i;
+            if (need_separate_base) {
+                SimStats bst;
+                eval_run_single(net, scen, EVAL_POL_FIXED_EQUAL, seed, dp_ma, dp_rf,
+                                prop_weights, 36, 30.0, 0.02, 60, 1, &bst);
+                base_vals[i] = bst.mean_wait_incl_censored_s;
+            }
+            for (size_t p = 0; p < n_pols; p++) {
+                if (pols[p] == EVAL_POL_GREEDY_MARGINAL_RF && !rf_available) {
+                    continue;
+                }
+                SimStats st;
+                Status est = eval_run_single(net, scen, pols[p], seed, dp_ma, dp_rf,
+                                             prop_weights, 36, 30.0, 0.02, 60, 1, &st);
+                if (est != STATUS_OK) {
+                    fprintf(stderr, "Error: eval_run_single failed for %s/%s seed %llu (status %d)\n",
+                            sname, eval_policy_name(pols[p]), (unsigned long long)seed, (int)est);
+                    fclose(rf); fclose(sf);
+                    free(metric_vals); free(base_vals); cJSON_Delete(j_root);
+                    if (dp_ma) dp_destroy(dp_ma);
+                    if (dp_rf) dp_destroy(dp_rf);
+                    network_destroy(net); free(stops); graph_destroy(g);
+                    return 1;
+                }
+                metric_vals[p * n_seeds + i] = st.mean_wait_incl_censored_s;
+                if (!need_separate_base && p == eq_idx) {
+                    base_vals[i] = st.mean_wait_incl_censored_s;
+                }
+                fprintf(rf, "%s,%s,%llu,%.9g,%.9g,%.9g,%zu,%zu,%zu,%.9g,%zu,%zu,%zu\n",
+                        sname,
+                        eval_policy_name(pols[p]),
+                        (unsigned long long)seed,
+                        st.mean_wait_boarded_s,
+                        st.mean_wait_incl_censored_s,
+                        st.p95_s,
+                        st.still_waiting,
+                        st.full_bus_events,
+                        st.moves_applied,
+                        st.deadhead_s_total,
+                        st.forced_dumps,
+                        st.anomaly_flags,
+                        st.emergency_dispatches);
+            }
+        }
+        fclose(rf);
+
+        printf("\n=== SCENARIO: %s (n=%zu, base_seed=%llu, metric=mean_wait_incl_censored_s) ===\n",
+               sname, n_seeds, (unsigned long long)base_seed);
+        printf("%-23s | %-17s | %-30s | %-12s | %s\n",
+               "Policy", "Mean +- SD", "Diff vs fixed_equal [95% CI]", "W/T/L", "Significant");
+        printf("------------------------+-------------------+--------------------------------+--------------+------------\n");
+
+        cJSON *j_scen = cJSON_CreateObject();
+        cJSON_AddStringToObject(j_scen, "name", sname);
+        cJSON_AddStringToObject(j_scen, "metric", "mean_wait_incl_censored_s");
+        cJSON_AddStringToObject(j_scen, "baseline", "fixed_equal");
+        cJSON *j_pols = cJSON_CreateArray();
+        cJSON_AddItemToObject(j_scen, "policies", j_pols);
+        cJSON_AddItemToArray(j_scens, j_scen);
+
+        for (size_t p = 0; p < n_pols; p++) {
+            const char *pname = eval_policy_name(pols[p]);
+            if (pols[p] == EVAL_POL_GREEDY_MARGINAL_RF && !rf_available) {
+                continue;
+            }
+            const double *pvals = &metric_vals[p * n_seeds];
+            double mean = 0.0, sd = 0.0;
+            eval_mean_sd(pvals, n_seeds, &mean, &sd);
+
+            EvalStats ps;
+            memset(&ps, 0, sizeof(ps));
+            int is_sig = 0;
+            if (pols[p] == EVAL_POL_FIXED_EQUAL) {
+                ps.n = n_seeds;
+                ps.ties = n_seeds;
+            } else {
+                eval_paired_stats(base_vals, pvals, n_seeds, &ps);
+                is_sig = (ps.ci_lo > 0.0 || ps.ci_hi < 0.0) ? 1 : 0;
+            }
+
+            char mean_buf[32], diff_buf[48], wtl_buf[24];
+            snprintf(mean_buf, sizeof(mean_buf), "%.2f +- %.2f", mean, sd);
+            if (pols[p] == EVAL_POL_FIXED_EQUAL) {
+                snprintf(diff_buf, sizeof(diff_buf), "base");
+                snprintf(wtl_buf, sizeof(wtl_buf), "-");
+            } else {
+                snprintf(diff_buf, sizeof(diff_buf), "%+.2f [%+.2f, %+.2f]",
+                         ps.mean, ps.ci_lo, ps.ci_hi);
+                snprintf(wtl_buf, sizeof(wtl_buf), "%zu/%zu/%zu",
+                         ps.wins, ps.ties, ps.losses);
+            }
+
+            printf("%-23s | %-17s | %-30s | %-12s | %s\n",
+                   pname, mean_buf, diff_buf, wtl_buf, is_sig ? "yes" : "no");
+
+            fprintf(sf, "%s,%zu,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%zu,%zu,%zu,%s\n",
+                    pname, n_seeds, mean, sd,
+                    ps.mean, ps.sd, ps.se, ps.ci_lo, ps.ci_hi,
+                    ps.wins, ps.ties, ps.losses, is_sig ? "true" : "false");
+
+            cJSON *jp = cJSON_CreateObject();
+            cJSON_AddStringToObject(jp, "name", pname);
+            cJSON_AddNumberToObject(jp, "n", (double)n_seeds);
+            cJSON_AddNumberToObject(jp, "mean", mean);
+            cJSON_AddNumberToObject(jp, "sd", sd);
+            cJSON_AddNumberToObject(jp, "diff_mean", ps.mean);
+            cJSON_AddNumberToObject(jp, "ci_lo", ps.ci_lo);
+            cJSON_AddNumberToObject(jp, "ci_hi", ps.ci_hi);
+            cJSON_AddNumberToObject(jp, "wins", (double)ps.wins);
+            cJSON_AddNumberToObject(jp, "ties", (double)ps.ties);
+            cJSON_AddNumberToObject(jp, "losses", (double)ps.losses);
+            cJSON_AddBoolToObject(jp, "significant", is_sig);
+            cJSON_AddItemToArray(j_pols, jp);
+        }
+        fclose(sf);
+    }
+
+    printf("\n15 comparisons are made at 95 percent: about one false positive is expected; borderline results are inconclusive.\n");
+
+    if (do_sensitivity) {
+        const double hyst_grid[3] = {0.02, 0.10, 0.25};
+        const double intv_grid[2] = {30.0, 60.0};
+        const EvalScenario sens_scens[2] = {EVAL_SCEN_NORMAL, EVAL_SCEN_RAIN_EVENT};
+        double *pol_vals = (double *)malloc(n_seeds * sizeof(double));
+        if (pol_vals) {
+            for (int si = 0; si < 2; si++) {
+                EvalScenario scen = sens_scens[si];
+                const char *sname = eval_scenario_name(scen);
+                for (size_t i = 0; i < n_seeds; i++) {
+                    SimStats bst;
+                    eval_run_single(net, scen, EVAL_POL_FIXED_EQUAL, base_seed + (uint64_t)i,
+                                    dp_ma, dp_rf, prop_weights, 36, 30.0, 0.02, 60, 1, &bst);
+                    base_vals[i] = bst.mean_wait_incl_censored_s;
+                }
+                char sens_path[1024];
+                snprintf(sens_path, sizeof(sens_path), "%s/sensitivity_%s.csv", out_dir, sname);
+                FILE *svf = fopen(sens_path, "wb");
+                if (svf) {
+                    fprintf(svf, "scenario,hysteresis,interval_min,n,mean,sd,diff_mean,diff_sd,diff_se,ci_lo,ci_hi,wins,ties,losses,significant\n");
+                    printf("\n=== SENSITIVITY: %s (greedy_marginal_ma vs fixed_equal, n=%zu) ===\n",
+                           sname, n_seeds);
+                    printf("%-6s | %-8s | %-17s | %-30s | %-10s | %s\n",
+                           "Hyst", "Interval", "Mean +- SD", "Diff [95% CI]", "W/T/L", "Sig");
+                    printf("-------+----------+-------------------+--------------------------------+------------+----\n");
+                    for (int hi = 0; hi < 3; hi++) {
+                        for (int ii = 0; ii < 2; ii++) {
+                            for (size_t i = 0; i < n_seeds; i++) {
+                                SimStats st;
+                                eval_run_single(net, scen, EVAL_POL_GREEDY_MARGINAL_MA,
+                                                base_seed + (uint64_t)i, dp_ma, dp_rf, prop_weights,
+                                                36, intv_grid[ii], hyst_grid[hi], 60, 1, &st);
+                                pol_vals[i] = st.mean_wait_incl_censored_s;
+                            }
+                            double mean = 0.0, sd = 0.0;
+                            eval_mean_sd(pol_vals, n_seeds, &mean, &sd);
+                            EvalStats ps;
+                            eval_paired_stats(base_vals, pol_vals, n_seeds, &ps);
+                            int is_sig = (ps.ci_lo > 0.0 || ps.ci_hi < 0.0) ? 1 : 0;
+                            printf("%-6.2f | %-8.0f | %7.2f +- %-6.2f | %+7.2f [%+7.2f, %+7.2f]   | %2zu/%2zu/%2zu   | %s\n",
+                                   hyst_grid[hi], intv_grid[ii], mean, sd,
+                                   ps.mean, ps.ci_lo, ps.ci_hi,
+                                   ps.wins, ps.ties, ps.losses, is_sig ? "yes" : "no");
+                            fprintf(svf, "%s,%.2f,%.0f,%zu,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%zu,%zu,%zu,%s\n",
+                                    sname, hyst_grid[hi], intv_grid[ii], n_seeds, mean, sd,
+                                    ps.mean, ps.sd, ps.se, ps.ci_lo, ps.ci_hi,
+                                    ps.wins, ps.ties, ps.losses, is_sig ? "true" : "false");
+                        }
+                    }
+                    fclose(svf);
+                }
+            }
+            free(pol_vals);
+        }
+    }
+
+    /* Populate coldstart and anomaly keys in summary.json from companion files if present */
+    char cs_json_path[1024], an_json_path[1024], sum_json_path[1024];
+    snprintf(cs_json_path, sizeof(cs_json_path), "%s/coldstart/coldstart_summary.json", g_data_dir);
+    snprintf(an_json_path, sizeof(an_json_path), "%s/anomaly_summary.json", out_dir);
+    snprintf(sum_json_path, sizeof(sum_json_path), "%s/summary.json", out_dir);
+
+    cJSON *j_cs = cli_read_json_file(cs_json_path);
+    cJSON_AddItemToObject(j_root, "coldstart", j_cs ? j_cs : cJSON_CreateObject());
+    cJSON *j_an = cli_read_json_file(an_json_path);
+    cJSON_AddItemToObject(j_root, "anomaly", j_an ? j_an : cJSON_CreateObject());
+
+    cli_write_json_file(sum_json_path, j_root);
+    cJSON_Delete(j_root);
+
+    free(metric_vals);
+    free(base_vals);
+    if (dp_ma) dp_destroy(dp_ma);
+    if (dp_rf) dp_destroy(dp_rf);
+    network_destroy(net);
+    free(stops);
+    graph_destroy(g);
+    return 0;
+}
+
+static int stop_node_cmp(const void *pa, const void *pb) {
+    const DemandStop *a = (const DemandStop *)pa;
+    const DemandStop *b = (const DemandStop *)pb;
+    if (a->node < b->node) return -1;
+    if (a->node > b->node) return 1;
+    return 0;
+}
+
+static int cmd_coldstart_prepare(int argc, char **argv) {
+    const char *out_dir = NULL;
+    const char *cache_path = NULL;
+    size_t max_stops = 60;
+    uint64_t seed = 42ULL;
+
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "--out-dir") == 0 && i + 1 < argc) {
+            out_dir = argv[++i];
+        } else if (strcmp(argv[i], "--cache") == 0 && i + 1 < argc) {
+            cache_path = argv[++i];
+        } else if (strcmp(argv[i], "--stops") == 0 && i + 1 < argc) {
+            max_stops = (size_t)strtoul(argv[++i], NULL, 10);
+        } else if (strcmp(argv[i], "--seed") == 0 && i + 1 < argc) {
+            seed = (uint64_t)strtoull(argv[++i], NULL, 10);
+        }
+    }
+
+    char resolved_out[512], resolved_cache[512];
+    if (!out_dir) {
+        snprintf(resolved_out, sizeof(resolved_out), "%s/coldstart", g_data_dir);
+        out_dir = resolved_out;
+    }
+    if (!cache_path) {
+        snprintf(resolved_cache, sizeof(resolved_cache), "%s/graph_cache.txt", g_data_dir);
+        cache_path = resolved_cache;
+    }
+    if (cli_mkdir_p(out_dir) != 0) {
+        fprintf(stderr, "Error: failed to create %s\n", out_dir);
+        return 1;
+    }
+
+    Graph *g = NULL;
+    if (graph_load(&g, cache_path) != STATUS_OK || !g) {
+        fprintf(stderr, "Error: failed to load graph cache from %s\n", cache_path);
+        return 1;
+    }
+
+    DemandStop *stops = NULL;
+    size_t n_stops = 0;
+    if (demand_stops_from_graph_anchored(g, max_stops, seed, &stops, &n_stops) != STATUS_OK || !stops) {
+        fprintf(stderr, "Error: failed to select anchored stops\n");
+        graph_destroy(g);
+        return 1;
+    }
+    qsort(stops, n_stops, sizeof(DemandStop), stop_node_cmp);
+
+    char holdout_path[1024];
+    snprintf(holdout_path, sizeof(holdout_path), "%s/holdout_stops.txt", out_dir);
+    FILE *f = fopen(holdout_path, "wb");
+    if (!f) {
+        fprintf(stderr, "Error: failed to write %s\n", holdout_path);
+        free(stops);
+        graph_destroy(g);
+        return 1;
+    }
+
+    size_t held = 0;
+    for (size_t i = 0; i < n_stops; i++) {
+        if (i % 4 == 3) {
+            fprintf(f, "%d\n", stops[i].node);
+            held++;
+        }
+    }
+    fclose(f);
+    printf("Selected %zu holdout stops out of %zu -> %s\n", held, n_stops, holdout_path);
+
+    free(stops);
+    graph_destroy(g);
+    return 0;
+}
+
+static int int_cmp_asc(const void *pa, const void *pb) {
+    int a = *(const int *)pa;
+    int b = *(const int *)pb;
+    return (a > b) - (a < b);
+}
+
+static int cmd_coldstart_eval(int argc, char **argv) {
+    const char *train_path = NULL;
+    const char *test_path = NULL;
+    const char *model_path = NULL;
+    const char *holdout_path = NULL;
+    const char *eval_dir = NULL;
+
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "--train") == 0 && i + 1 < argc) train_path = argv[++i];
+        else if (strcmp(argv[i], "--test") == 0 && i + 1 < argc) test_path = argv[++i];
+        else if ((strcmp(argv[i], "--model") == 0 || strcmp(argv[i], "--model-rf") == 0) && i + 1 < argc) model_path = argv[++i];
+        else if (strcmp(argv[i], "--holdout") == 0 && i + 1 < argc) holdout_path = argv[++i];
+        else if (strcmp(argv[i], "--eval-dir") == 0 && i + 1 < argc) eval_dir = argv[++i];
+    }
+
+    char r_train[512], r_test[512], r_model[512], r_holdout[512], r_eval[512];
+    if (!train_path) { snprintf(r_train, sizeof(r_train), "%s/coldstart/demand_train.csv", g_data_dir); train_path = r_train; }
+    if (!test_path) { snprintf(r_test, sizeof(r_test), "%s/coldstart/demand_test.csv", g_data_dir); test_path = r_test; }
+    if (!model_path) { snprintf(r_model, sizeof(r_model), "%s/coldstart/demand_rf.txt", g_data_dir); model_path = r_model; }
+    if (!holdout_path) { snprintf(r_holdout, sizeof(r_holdout), "%s/coldstart/holdout_stops.txt", g_data_dir); holdout_path = r_holdout; }
+    if (!eval_dir) { snprintf(r_eval, sizeof(r_eval), "%s/eval", g_data_dir); eval_dir = r_eval; }
+
+    FILE *hf = fopen(holdout_path, "rb");
+    if (!hf) {
+        fprintf(stderr, "Error: failed to open holdout stops file %s\n", holdout_path);
+        return 1;
+    }
+    int holdout_nodes[256];
+    size_t n_holdout = 0;
+    char hline[128];
+    while (fgets(hline, sizeof(hline), hf)) {
+        size_t len = strlen(hline);
+        while (len > 0 && (hline[len - 1] == '\r' || hline[len - 1] == '\n' || hline[len - 1] == ' ')) {
+            hline[--len] = '\0';
+        }
+        if (len > 0 && n_holdout < 256) {
+            holdout_nodes[n_holdout++] = atoi(hline);
+        }
+    }
+    fclose(hf);
+
+    DemandRow *train_rows = NULL, *test_rows = NULL;
+    size_t n_train = 0, n_test = 0;
+    if (demand_rows_load_csv(train_path, &train_rows, &n_train) != STATUS_OK || !train_rows) {
+        fprintf(stderr, "Error: failed to load train CSV %s\n", train_path);
+        return 1;
+    }
+    if (demand_rows_load_csv(test_path, &test_rows, &n_test) != STATUS_OK || !test_rows) {
+        fprintf(stderr, "Error: failed to load test CSV %s\n", test_path);
+        free(train_rows);
+        return 1;
+    }
+
+    DemandPredictor *p_ma = dp_train_moving_avg(train_rows, n_train);
+    DemandPredictor *p_ols = dp_train_ols_band(train_rows, n_train);
+    ForestModel *fm = NULL;
+    DemandPredictor *p_rf = NULL;
+    if (forest_load(&fm, model_path) == STATUS_OK && fm) {
+        p_rf = dp_from_forest(fm);
+    }
+    if (!p_ma || !p_ols || !p_rf) {
+        fprintf(stderr, "Error: failed to initialize predictors for coldstart-eval\n");
+        if (p_ma) dp_destroy(p_ma);
+        if (p_ols) dp_destroy(p_ols);
+        if (p_rf) dp_destroy(p_rf);
+        free(train_rows); free(test_rows);
+        return 1;
+    }
+
+    DemandRow *seen_rows = (DemandRow *)malloc(n_test * sizeof(DemandRow));
+    DemandRow *unseen_rows = (DemandRow *)malloc(n_test * sizeof(DemandRow));
+    if (!seen_rows || !unseen_rows) {
+        free(seen_rows); free(unseen_rows);
+        dp_destroy(p_ma); dp_destroy(p_ols); dp_destroy(p_rf);
+        free(train_rows); free(test_rows);
+        return 1;
+    }
+
+    size_t n_seen = 0, n_unseen = 0;
+    for (size_t i = 0; i < n_test; i++) {
+        int is_ho = 0;
+        for (size_t h = 0; h < n_holdout; h++) {
+            if (test_rows[i].stop_node == holdout_nodes[h]) {
+                is_ho = 1;
+                break;
+            }
+        }
+        if (is_ho) unseen_rows[n_unseen++] = test_rows[i];
+        else seen_rows[n_seen++] = test_rows[i];
+    }
+
+    DemandPredictor *mods[3] = {p_ma, p_ols, p_rf};
+    DemandEval ev_seen[3], ev_unseen[3];
+    memset(ev_seen, 0, sizeof(ev_seen));
+    memset(ev_unseen, 0, sizeof(ev_unseen));
+
+    printf("\n=== COLD-START EVALUATION (train_rows=%zu, holdout_stops=%zu) ===\n",
+           n_train, n_holdout);
+    printf("--- SEEN STOPS (test_rows=%zu) ---\n", n_seen);
+    printf("%-18s | %8s | %8s | %8s | %11s\n", "Model", "Rows", "MAE", "RMSE", "MAE(lambda)");
+    printf("-------------------+----------+----------+----------+------------\n");
+    for (int m = 0; m < 3; m++) {
+        dp_evaluate(mods[m], seen_rows, n_seen, &ev_seen[m], NULL);
+        printf("%-18s | %8zu | %8.3f | %8.3f | %11.3f\n",
+               dp_name(mods[m]), ev_seen[m].n, ev_seen[m].mae_noisy,
+               ev_seen[m].rmse_noisy, ev_seen[m].mae_lambda);
+    }
+
+    printf("\n--- UNSEEN STOPS (test_rows=%zu) ---\n", n_unseen);
+    printf("%-18s | %8s | %8s | %8s | %11s\n", "Model", "Rows", "MAE", "RMSE", "MAE(lambda)");
+    printf("-------------------+----------+----------+----------+------------\n");
+    for (int m = 0; m < 3; m++) {
+        dp_evaluate(mods[m], unseen_rows, n_unseen, &ev_unseen[m], NULL);
+        printf("%-18s | %8zu | %8.3f | %8.3f | %11.3f\n",
+               dp_name(mods[m]), ev_unseen[m].n, ev_unseen[m].mae_noisy,
+               ev_unseen[m].rmse_noisy, ev_unseen[m].mae_lambda);
+    }
+
+    /* Paired per-day MAE(lambda) on unseen stops: RF - MA */
+    int *days = (int *)malloc(n_unseen * sizeof(int));
+    size_t n_days = 0;
+    if (days) {
+        for (size_t i = 0; i < n_unseen; i++) {
+            int d = unseen_rows[i].day;
+            int found = 0;
+            for (size_t j = 0; j < n_days; j++) {
+                if (days[j] == d) { found = 1; break; }
+            }
+            if (!found) days[n_days++] = d;
+        }
+        qsort(days, n_days, sizeof(int), int_cmp_asc);
+    }
+
+    EvalStats paired;
+    memset(&paired, 0, sizeof(paired));
+    if (days && n_days >= 2) {
+        double *ma_d = (double *)calloc(n_days, sizeof(double));
+        double *rf_d = (double *)calloc(n_days, sizeof(double));
+        if (ma_d && rf_d) {
+            for (size_t di = 0; di < n_days; di++) {
+                int d = days[di];
+                double s_ma = 0.0, s_rf = 0.0;
+                size_t cnt = 0;
+                for (size_t i = 0; i < n_unseen; i++) {
+                    if (unseen_rows[i].day != d) continue;
+                    const DemandRow *r = &unseen_rows[i];
+                    double pm = dp_predict(p_ma, r->stop_node, r->stop_type, r->stop_scale,
+                                           r->hour, r->day_type, r->rain, r->event);
+                    double pr = dp_predict(p_rf, r->stop_node, r->stop_type, r->stop_scale,
+                                           r->hour, r->day_type, r->rain, r->event);
+                    s_ma += fabs(pm - r->lambda);
+                    s_rf += fabs(pr - r->lambda);
+                    cnt++;
+                }
+                if (cnt > 0) {
+                    ma_d[di] = s_ma / (double)cnt;
+                    rf_d[di] = s_rf / (double)cnt;
+                }
+            }
+            eval_paired_stats(ma_d, rf_d, n_days, &paired);
+            printf("\nUnseen stops per-day MAE(lambda), RF - MA (n=%zu days): mean=%+.4f, sd=%.4f, 95%% CI [%+.4f, %+.4f], wins=%zu ties=%zu losses=%zu\n\n",
+                   n_days, paired.mean, paired.sd, paired.ci_lo, paired.ci_hi,
+                   paired.wins, paired.ties, paired.losses);
+        }
+        free(ma_d);
+        free(rf_d);
+    }
+    free(days);
+
+    /* Write companion coldstart_summary.json and update summary.json if present */
+    cJSON *j_cs = cJSON_CreateObject();
+    cJSON_AddNumberToObject(j_cs, "train_rows", (double)n_train);
+    cJSON_AddNumberToObject(j_cs, "holdout_stops", (double)n_holdout);
+    cJSON_AddNumberToObject(j_cs, "seen_rows", (double)n_seen);
+    cJSON_AddNumberToObject(j_cs, "unseen_rows", (double)n_unseen);
+
+    cJSON *j_seen = cJSON_CreateArray();
+    cJSON *j_unseen = cJSON_CreateArray();
+    for (int m = 0; m < 3; m++) {
+        cJSON *js = cJSON_CreateObject();
+        cJSON_AddStringToObject(js, "model", dp_name(mods[m]));
+        cJSON_AddNumberToObject(js, "mae_noisy", ev_seen[m].mae_noisy);
+        cJSON_AddNumberToObject(js, "rmse_noisy", ev_seen[m].rmse_noisy);
+        cJSON_AddNumberToObject(js, "mae_lambda", ev_seen[m].mae_lambda);
+        cJSON_AddItemToArray(j_seen, js);
+
+        cJSON *ju = cJSON_CreateObject();
+        cJSON_AddStringToObject(ju, "model", dp_name(mods[m]));
+        cJSON_AddNumberToObject(ju, "mae_noisy", ev_unseen[m].mae_noisy);
+        cJSON_AddNumberToObject(ju, "rmse_noisy", ev_unseen[m].rmse_noisy);
+        cJSON_AddNumberToObject(ju, "mae_lambda", ev_unseen[m].mae_lambda);
+        cJSON_AddItemToArray(j_unseen, ju);
+    }
+    cJSON_AddItemToObject(j_cs, "seen", j_seen);
+    cJSON_AddItemToObject(j_cs, "unseen", j_unseen);
+
+    cJSON *j_pair = cJSON_CreateObject();
+    cJSON_AddNumberToObject(j_pair, "n_days", (double)paired.n);
+    cJSON_AddNumberToObject(j_pair, "diff_mean_rf_minus_ma", paired.mean);
+    cJSON_AddNumberToObject(j_pair, "ci_lo", paired.ci_lo);
+    cJSON_AddNumberToObject(j_pair, "ci_hi", paired.ci_hi);
+    cJSON_AddNumberToObject(j_pair, "wins", (double)paired.wins);
+    cJSON_AddNumberToObject(j_pair, "ties", (double)paired.ties);
+    cJSON_AddNumberToObject(j_pair, "losses", (double)paired.losses);
+    cJSON_AddItemToObject(j_cs, "paired_unseen_mae_lambda", j_pair);
+
+    char cs_json_out[1024], eval_sum_path[1024];
+    snprintf(cs_json_out, sizeof(cs_json_out), "%s/coldstart/coldstart_summary.json", g_data_dir);
+    cli_mkdir_p(eval_dir);
+    cli_write_json_file(cs_json_out, j_cs);
+    snprintf(eval_sum_path, sizeof(eval_sum_path), "%s/summary.json", eval_dir);
+    cli_update_summary_json_field(eval_sum_path, "coldstart", j_cs);
+
+    free(seen_rows);
+    free(unseen_rows);
+    dp_destroy(p_ma);
+    dp_destroy(p_ols);
+    dp_destroy(p_rf);
+    free(train_rows);
+    free(test_rows);
+    return 0;
+}
+
+static int run_anomaly_sim(NetworkModel *net, uint64_t seed, double threshold, double cooldown_min,
+                           int is_event, int ev_stop, size_t *out_total_flags,
+                           size_t *out_event_flags_E, size_t *out_pre_event_E,
+                           int *out_detected, double *out_delay_min) {
+    Graph *g = network_graph(net);
+    if (!g || eval_graph_has_blocked_edge(g) != 0) return -1;
+    graph_reset_traffic(g);
+
+    SimConfig scfg;
+    sim_config_default(&scfg);
+    scfg.seed = seed;
+    scfg.day = 0;
+    scfg.day_type = DAY_WEEKDAY;
+    scfg.rain = 0;
+    scfg.start_min = 360.0;
+    scfg.end_min = 1320.0;
+    scfg.warmup_min = 30.0;
+    scfg.slice_min = 15.0;
+    scfg.arrivals_enabled = 1;
+    scfg.dwell_s = 20.0;
+    scfg.per_pax_s = 1.0;
+    scfg.bus_capacity = 60;
+    scfg.travel_noise = 0.10;
+    scfg.n_buses = 36;
+    scfg.n_reserve = 0;
+    scfg.depot_stop = 0;
+    scfg.policy = SIM_POLICY_FIXED_EQUAL;
+    scfg.predictor = NULL;
+    scfg.initial_spacing = SIM_SPACING_BY_TIME;
+    scfg.reassign_mode = SIM_REASSIGN_DRAIN;
+    scfg.apply_traffic = 1;
+    scfg.anomaly_detect = 1;
+    scfg.anomaly_dispatch = 0;
+    scfg.anomaly = anomaly_config_default();
+    scfg.anomaly.z_threshold = threshold;
+    scfg.anomaly.cooldown_min = cooldown_min;
+
+    Sim *sim = NULL;
+    if (sim_create(net, &scfg, &sim) != STATUS_OK || !sim) return -1;
+
+    if (is_event) {
+        SimScenario sc1 = {1020.0, SIM_SCEN_EVENT_ON, ev_stop};
+        SimScenario sc2 = {1140.0, SIM_SCEN_EVENT_OFF, ev_stop};
+        if (sim_schedule(sim, &sc1) != STATUS_OK || sim_schedule(sim, &sc2) != STATUS_OK) {
+            sim_destroy(sim);
+            return -1;
+        }
+    }
+
+    if (sim_run_to_end(sim) != STATUS_OK) {
+        sim_destroy(sim);
+        return -1;
+    }
+
+    SimStats st;
+    sim_stats(sim, &st);
+    *out_total_flags = st.anomaly_flags;
+    *out_event_flags_E = 0;
+    *out_pre_event_E = 0;
+    *out_detected = 0;
+    *out_delay_min = -1.0;
+
+    if (is_event) {
+        size_t lcnt = sim_log_count(sim);
+        for (size_t i = 0; i < lcnt; i++) {
+            const char *line = sim_log_line(sim, i);
+            if (!line) continue;
+            int hh = 0, mm = 0, ss = 0;
+            size_t st_idx = 0;
+            if (sscanf(line, "[%d:%d:%d] anomaly detected at stop %zu", &hh, &mm, &ss, &st_idx) == 4) {
+                if ((int)st_idx == ev_stop) {
+                    double t_min = (double)(hh * 60 + mm) + (double)ss / 60.0;
+                    if (t_min < 1020.0 - 1e-6) {
+                        (*out_pre_event_E)++;
+                    } else if (t_min <= 1140.0 + 1e-6) {
+                        (*out_event_flags_E)++;
+                        if (!(*out_detected)) {
+                            *out_detected = 1;
+                            *out_delay_min = t_min - 1020.0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    sim_destroy(sim);
+    return 0;
+}
+
+static int cmd_anomaly_eval(int argc, char **argv) {
+    size_t n_seeds = 30;
+    uint64_t base_seed = 1000ULL;
+    const char *thr_str = "3,3.5,4,5";
+    const char *out_dir = NULL;
+
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "--seeds") == 0 && i + 1 < argc) {
+            n_seeds = (size_t)strtoul(argv[++i], NULL, 10);
+        } else if (strcmp(argv[i], "--base-seed") == 0 && i + 1 < argc) {
+            base_seed = (uint64_t)strtoull(argv[++i], NULL, 10);
+        } else if (strcmp(argv[i], "--thresholds") == 0 && i + 1 < argc) {
+            thr_str = argv[++i];
+        } else if (strcmp(argv[i], "--out-dir") == 0 && i + 1 < argc) {
+            out_dir = argv[++i];
+        }
+    }
+
+    if (n_seeds < 2) {
+        fprintf(stderr, "Error: --seeds must be >= 2\n");
+        return 1;
+    }
+
+    double thresholds[16];
+    size_t n_thr = 0;
+    {
+        char tbuf[256];
+        snprintf(tbuf, sizeof(tbuf), "%s", thr_str);
+        char *p = tbuf;
+        while (p && *p && n_thr < 16) {
+            char *comma = strchr(p, ',');
+            if (comma) *comma = '\0';
+            thresholds[n_thr++] = atof(p);
+            p = comma ? (comma + 1) : NULL;
+        }
+    }
+    if (n_thr == 0) {
+        fprintf(stderr, "Error: no thresholds specified\n");
+        return 1;
+    }
+
+    char resolved_out[512];
+    if (!out_dir) {
+        snprintf(resolved_out, sizeof(resolved_out), "%s/eval", g_data_dir);
+        out_dir = resolved_out;
+    }
+    if (cli_mkdir_p(out_dir) != 0) {
+        fprintf(stderr, "Error: failed to create output directory %s\n", out_dir);
+        return 1;
+    }
+
+    char cache_path[512];
+    snprintf(cache_path, sizeof(cache_path), "%s/graph_cache.txt", g_data_dir);
+    Graph *g = NULL;
+    if (graph_load(&g, cache_path) != STATUS_OK || !g) {
+        fprintf(stderr, "Error: failed to load graph cache from %s\n", cache_path);
+        return 1;
+    }
+    DemandStop *stops = NULL;
+    size_t n_stops = 0;
+    if (demand_stops_from_graph_anchored(g, 60, 42ULL, &stops, &n_stops) != STATUS_OK || !stops) {
+        graph_destroy(g);
+        return 1;
+    }
+    NetworkConfig ncfg;
+    network_config_default(&ncfg);
+    ncfg.n_routes = 6;
+    ncfg.build_matrix = 1;
+    NetworkModel *net = NULL;
+    if (network_build(g, stops, n_stops, &ncfg, &net) != STATUS_OK || !net) {
+        free(stops); graph_destroy(g);
+        return 1;
+    }
+
+    int ev_stop = eval_pick_event_stop(net);
+    char noev_path[1024], ev_path[1024];
+    snprintf(noev_path, sizeof(noev_path), "%s/anomaly_no-event.csv", out_dir);
+    snprintf(ev_path, sizeof(ev_path), "%s/anomaly_event.csv", out_dir);
+
+    FILE *fno = fopen(noev_path, "wb");
+    FILE *fev = fopen(ev_path, "wb");
+    if (!fno || !fev) {
+        if (fno) fclose(fno);
+        if (fev) fclose(fev);
+        network_destroy(net); free(stops); graph_destroy(g);
+        return 1;
+    }
+    fprintf(fno, "threshold,seed,flags\n");
+    fprintf(fev, "threshold,seed,total_flags,event_flags_E,pre_event_false_E,detected,delay_min\n");
+
+    double *no_flags = (double *)malloc(n_seeds * sizeof(double));
+    double *delays = (double *)malloc(n_seeds * sizeof(double));
+    if (!no_flags || !delays) {
+        free(no_flags); free(delays); fclose(fno); fclose(fev);
+        network_destroy(net); free(stops); graph_destroy(g);
+        return 1;
+    }
+
+    printf("\n=== ANOMALY EVALUATION (n=%zu seeds, base_seed=%llu, event_stop=%d) ===\n",
+           n_seeds, (unsigned long long)base_seed, ev_stop);
+    printf("%-9s | %-20s | %-14s | %-16s | %s\n",
+           "Threshold", "False Alarms/Day", "Detection Rate", "Median Delay(m)", "Precision");
+    printf("----------+----------------------+----------------+------------------+----------\n");
+
+    cJSON *j_anom = cJSON_CreateObject();
+    cJSON_AddNumberToObject(j_anom, "seeds", (double)n_seeds);
+    cJSON_AddNumberToObject(j_anom, "base_seed", (double)base_seed);
+    cJSON_AddNumberToObject(j_anom, "event_stop", ev_stop);
+    cJSON *j_thrs = cJSON_CreateArray();
+    cJSON_AddItemToObject(j_anom, "thresholds", j_thrs);
+
+    for (size_t ti = 0; ti < n_thr; ti++) {
+        double thr = thresholds[ti];
+        size_t det_cnt = 0;
+        size_t n_del = 0;
+        size_t sum_ev_flags_E = 0;
+        size_t sum_all_flags = 0;
+
+        for (size_t i = 0; i < n_seeds; i++) {
+            uint64_t seed = base_seed + (uint64_t)i;
+            size_t tot = 0, evE = 0, preE = 0;
+            int det = 0;
+            double dmin = -1.0;
+
+            if (run_anomaly_sim(net, seed, thr, 60.0, 0, ev_stop, &tot, &evE, &preE, &det, &dmin) != 0) {
+                fprintf(stderr, "Error: no-event anomaly run failed\n");
+                free(no_flags); free(delays); fclose(fno); fclose(fev); cJSON_Delete(j_anom);
+                network_destroy(net); free(stops); graph_destroy(g);
+                return 1;
+            }
+            no_flags[i] = (double)tot;
+            fprintf(fno, "%.2f,%llu,%zu\n", thr, (unsigned long long)seed, tot);
+
+            if (run_anomaly_sim(net, seed, thr, 60.0, 1, ev_stop, &tot, &evE, &preE, &det, &dmin) != 0) {
+                fprintf(stderr, "Error: event anomaly run failed\n");
+                free(no_flags); free(delays); fclose(fno); fclose(fev); cJSON_Delete(j_anom);
+                network_destroy(net); free(stops); graph_destroy(g);
+                return 1;
+            }
+            if (det) {
+                det_cnt++;
+                delays[n_del++] = dmin;
+            }
+            sum_ev_flags_E += evE;
+            sum_all_flags += tot;
+            fprintf(fev, "%.2f,%llu,%zu,%zu,%zu,%d,%.9g\n",
+                    thr, (unsigned long long)seed, tot, evE, preE, det, dmin);
+        }
+
+        double fa_mean = 0.0, fa_sd = 0.0;
+        eval_mean_sd(no_flags, n_seeds, &fa_mean, &fa_sd);
+        double det_rate = (double)det_cnt / (double)n_seeds;
+        double med_delay = (n_del > 0) ? eval_median(delays, n_del) : NAN;
+        double prec = (sum_all_flags > 0) ? ((double)sum_ev_flags_E / (double)sum_all_flags) : 0.0;
+
+        char fa_buf[32], del_buf[24];
+        snprintf(fa_buf, sizeof(fa_buf), "%.2f +- %.2f", fa_mean, fa_sd);
+        if (isnan(med_delay)) snprintf(del_buf, sizeof(del_buf), "-");
+        else snprintf(del_buf, sizeof(del_buf), "%.2f", med_delay);
+
+        printf("%-9.2f | %-20s | %-14.3f | %-16s | %.3f\n",
+               thr, fa_buf, det_rate, del_buf, prec);
+
+        cJSON *jt = cJSON_CreateObject();
+        cJSON_AddNumberToObject(jt, "threshold", thr);
+        cJSON_AddNumberToObject(jt, "false_alarms_mean", fa_mean);
+        cJSON_AddNumberToObject(jt, "false_alarms_sd", fa_sd);
+        cJSON_AddNumberToObject(jt, "detection_rate", det_rate);
+        if (!isnan(med_delay)) cJSON_AddNumberToObject(jt, "median_delay_min", med_delay);
+        else cJSON_AddNullToObject(jt, "median_delay_min");
+        cJSON_AddNumberToObject(jt, "precision", prec);
+        cJSON_AddItemToArray(j_thrs, jt);
+    }
+    fclose(fno);
+    fclose(fev);
+
+    /* Analytic validation: cooldown 0, threshold 3.0, no-event */
+    for (size_t i = 0; i < n_seeds; i++) {
+        size_t tot = 0, evE = 0, preE = 0;
+        int det = 0;
+        double dmin = -1.0;
+        if (run_anomaly_sim(net, base_seed + (uint64_t)i, 3.0, 0.0, 0, ev_stop,
+                            &tot, &evE, &preE, &det, &dmin) != 0) {
+            free(no_flags); free(delays); cJSON_Delete(j_anom);
+            network_destroy(net); free(stops); graph_destroy(g);
+            return 1;
+        }
+        no_flags[i] = (double)tot;
+    }
+    double obs_mean = 0.0, obs_sd = 0.0;
+    eval_mean_sd(no_flags, n_seeds, &obs_mean, &obs_sd);
+    double se = obs_sd / sqrt((double)n_seeds);
+    double analytic = eval_anomaly_expected_flags(net, 360.0, 1320.0, 15.0,
+                                                  DAY_WEEKDAY, 0, 3.0, 1.0, 5);
+    double diff = fabs(obs_mean - analytic);
+    int pass = (se > 0.0) ? (diff <= 4.0 * se) : (diff <= 1e-9);
+    double z_diff = (se > 0.0) ? (diff / se) : 0.0;
+
+    printf("\nAnalytic validation (cooldown=0, threshold=3.0, no-event):\n");
+    printf("  analytic expected: %.4f\n", analytic);
+    printf("  observed mean:     %.4f\n", obs_mean);
+    printf("  standard error:    %.4f\n", se);
+    printf("  |obs - expected|:  %.4f (%.2f SE, limit 4.00 SE) -> %s\n\n",
+           diff, z_diff, pass ? "PASS" : "FAIL");
+
+    cJSON *j_val = cJSON_CreateObject();
+    cJSON_AddNumberToObject(j_val, "analytic_expected", analytic);
+    cJSON_AddNumberToObject(j_val, "observed_mean", obs_mean);
+    cJSON_AddNumberToObject(j_val, "standard_error", se);
+    cJSON_AddBoolToObject(j_val, "pass", pass);
+    cJSON_AddItemToObject(j_anom, "analytic_validation", j_val);
+
+    char an_json_path[1024], sum_json_path[1024];
+    snprintf(an_json_path, sizeof(an_json_path), "%s/anomaly_summary.json", out_dir);
+    cli_write_json_file(an_json_path, j_anom);
+    snprintf(sum_json_path, sizeof(sum_json_path), "%s/summary.json", out_dir);
+    cli_update_summary_json_field(sum_json_path, "anomaly", j_anom);
+
+    free(no_flags);
+    free(delays);
+    network_destroy(net);
+    free(stops);
+    graph_destroy(g);
+    return pass ? 0 : 1;
+}
+
 /* ---- main ---- */
 
 int main(int argc, char **argv) {
@@ -2623,6 +3860,14 @@ int main(int argc, char **argv) {
         return cmd_sim_run(sub_argc, sub_argv);
     } else if (strcmp(cmd, "sim-compare") == 0) {
         return cmd_sim_compare(sub_argc, sub_argv);
+    } else if (strcmp(cmd, "eval-run") == 0) {
+        return cmd_eval_run(sub_argc, sub_argv);
+    } else if (strcmp(cmd, "coldstart-prepare") == 0) {
+        return cmd_coldstart_prepare(sub_argc, sub_argv);
+    } else if (strcmp(cmd, "coldstart-eval") == 0) {
+        return cmd_coldstart_eval(sub_argc, sub_argv);
+    } else if (strcmp(cmd, "anomaly-eval") == 0) {
+        return cmd_anomaly_eval(sub_argc, sub_argv);
     } else {
         fprintf(stderr, "Unknown command: %s\n\n", cmd);
         usage(argv[0]);

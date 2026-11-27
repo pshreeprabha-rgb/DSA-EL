@@ -19,6 +19,8 @@ data/demand_history.csv
 data/demand_train.csv
 data/demand_test.csv
 data/exp_noevent/
+data/coldstart/
+data/eval/
 
 # Python cache
 __pycache__/
