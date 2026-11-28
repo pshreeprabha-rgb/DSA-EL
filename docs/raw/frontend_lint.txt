@@ -1,0 +1,6 @@
+
+> transport-frontend@0.1.0 lint
+> eslint .
+
+25.79user 1.51system 0:11.18elapsed 244%CPU (0avgtext+0avgdata 408800maxresident)k
+58456inputs+8outputs (1major+111313minor)pagefaults 0swaps

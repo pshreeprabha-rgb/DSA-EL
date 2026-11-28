@@ -1,0 +1,47 @@
+{
+	"train_rows":	90720,
+	"holdout_stops":	15,
+	"seen_rows":	38880,
+	"unseen_rows":	12960,
+	"seen":	[{
+			"model":	"moving_average",
+			"mae_noisy":	2.191180430976515,
+			"rmse_noisy":	3.5949025025914088,
+			"mae_lambda":	0.737189807297529
+		}, {
+			"model":	"ols_per_band",
+			"mae_noisy":	4.6070900991357586,
+			"rmse_noisy":	8.1414829652915,
+			"mae_lambda":	4.0742622526601515
+		}, {
+			"model":	"random_forest",
+			"mae_noisy":	2.6716908703098072,
+			"rmse_noisy":	4.5682821773117954,
+			"mae_lambda":	1.4409733058153957
+		}],
+	"unseen":	[{
+			"model":	"moving_average",
+			"mae_noisy":	3.4522151530672849,
+			"rmse_noisy":	6.0682878688984347,
+			"mae_lambda":	2.7778192862113484
+		}, {
+			"model":	"ols_per_band",
+			"mae_noisy":	4.1080216306791142,
+			"rmse_noisy":	6.43293453362094,
+			"mae_lambda":	3.5616901741431719
+		}, {
+			"model":	"random_forest",
+			"mae_noisy":	2.9142273256213893,
+			"rmse_noisy":	5.0053016634199556,
+			"mae_lambda":	1.9197192580006084
+		}],
+	"paired_unseen_mae_lambda":	{
+		"n_days":	36,
+		"diff_mean_rf_minus_ma":	-0.8581000282107063,
+		"ci_lo":	-1.0896428984465196,
+		"ci_hi":	-0.626557157974893,
+		"wins":	35,
+		"ties":	0,
+		"losses":	1
+	}
+}

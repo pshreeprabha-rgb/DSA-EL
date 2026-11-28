@@ -1,0 +1,40 @@
+{
+	"seeds":	30,
+	"base_seed":	1000,
+	"event_stop":	13,
+	"thresholds":	[{
+			"threshold":	3,
+			"false_alarms_mean":	17.233333333333334,
+			"false_alarms_sd":	4.4696936046601925,
+			"detection_rate":	1,
+			"median_delay_min":	15,
+			"precision":	0.10434782608695652
+		}, {
+			"threshold":	3.5,
+			"false_alarms_mean":	7.2666666666666666,
+			"false_alarms_sd":	2.935318032858278,
+			"detection_rate":	1,
+			"median_delay_min":	15,
+			"precision":	0.21582733812949639
+		}, {
+			"threshold":	4,
+			"false_alarms_mean":	3.2,
+			"false_alarms_sd":	2.2190398669322016,
+			"detection_rate":	1,
+			"median_delay_min":	15,
+			"precision":	0.38461538461538464
+		}, {
+			"threshold":	5,
+			"false_alarms_mean":	0.36666666666666664,
+			"false_alarms_sd":	0.76489049625705752,
+			"detection_rate":	1,
+			"median_delay_min":	15,
+			"precision":	0.84507042253521125
+		}],
+	"analytic_validation":	{
+		"analytic_expected":	16.462259399362651,
+		"observed_mean":	17.433333333333334,
+		"standard_error":	0.81886286914686324,
+		"pass":	true
+	}
+}

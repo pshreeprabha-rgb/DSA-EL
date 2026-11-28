@@ -1,0 +1,9 @@
+[traffic] API key: found
+[traffic] Using loaded OSM graph: 4765 nodes, 8156 edges
+[traffic] Loaded 8 corridors from ../data/corridors.txt
+[traffic] Source: SIMULATED
+[traffic] Call count: 0
+[traffic] Live corridors: 0
+[traffic] Edges overwritten by live data: 0 of 8156
+[traffic] Overwritten edges factor: N/A (no edges overwritten)
+[traffic] All edges traffic factors: min=1.09 avg=1.17 max=1.29

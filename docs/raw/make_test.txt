@@ -1,0 +1,618 @@
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/common.c -o build/src/common.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/types.c -o build/src/types.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/linkedlist.c -o build/src/linkedlist.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/stack.c -o build/src/stack.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/queue.c -o build/src/queue.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/tree.c -o build/src/tree.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/heap.c -o build/src/heap.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/avl.c -o build/src/avl.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/hashtable.c -o build/src/hashtable.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/graph.c -o build/src/graph.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/pathfind.c -o build/src/pathfind.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/reroute.c -o build/src/reroute.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/traffic_sim.c -o build/src/traffic_sim.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/traffic_client.c -o build/src/traffic_client.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/osm_loader.c -o build/src/osm_loader.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/graph_scc.c -o build/src/graph_scc.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/demand_model.c -o build/src/demand_model.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/ai_inference.c -o build/src/ai_inference.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/ai_demand.c -o build/src/ai_demand.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/network.c -o build/src/network.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/fleet_alloc.c -o build/src/fleet_alloc.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/anomaly.c -o build/src/anomaly.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/sim.c -o build/src/sim.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/eval.c -o build/src/eval.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/registry.c -o build/src/registry.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/api_platform.c -o build/src/api_platform.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/api_app.c -o build/src/api_app.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/api_json.c -o build/src/api_json.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson -c src/api_http.c -o build/src/api_http.o
+ar rcs build/libtransport_core.a build/src/common.o build/src/types.o build/src/linkedlist.o build/src/stack.o build/src/queue.o build/src/tree.o build/src/heap.o build/src/avl.o build/src/hashtable.o build/src/graph.o build/src/pathfind.o build/src/reroute.o build/src/traffic_sim.o build/src/traffic_client.o build/src/osm_loader.o build/src/graph_scc.o build/src/demand_model.o build/src/ai_inference.o build/src/ai_demand.o build/src/network.o build/src/fleet_alloc.o build/src/anomaly.o build/src/sim.o build/src/eval.o build/src/registry.o build/src/api_platform.o build/src/api_app.o build/src/api_json.o build/src/api_http.o
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_linkedlist.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_linkedlist
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_stack.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_stack
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_queue.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_queue
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_tree.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_tree
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_heap.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_heap
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_avl.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_avl
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_hashtable.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_hashtable
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_types.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_types
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_graph.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_graph
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_pathfind.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_pathfind
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_reroute.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_reroute
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_traffic_sim.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_traffic_sim
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_traffic_client.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_traffic_client
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_osm_loader.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_osm_loader
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_graph_scc.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_graph_scc
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_demand_model.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_demand_model
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_ai_inference.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_ai_inference
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_ai_demand.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_ai_demand
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_network.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_network
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_fleet_alloc.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_fleet_alloc
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_anomaly.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_anomaly
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_sim.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_sim
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_sim_ext.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_sim_ext
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_eval.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_eval
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_registry.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_registry
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_api_json.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_api_json
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tests/test_api_actions.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/tests/test_api_actions
+========================================
+Running All Test Suites
+========================================
+Running build/tests/test_linkedlist ...
+[RUN ] test_null_args
+[PASS] test_null_args
+[RUN ] test_empty_list
+[PASS] test_empty_list
+[RUN ] test_single_element_and_removals
+[PASS] test_single_element_and_removals
+[RUN ] test_remove_first_last_middle
+[PASS] test_remove_first_last_middle
+[RUN ] test_insert_at
+[PASS] test_insert_at
+[RUN ] test_remove_if
+[PASS] test_remove_if
+[RUN ] test_traversals
+[PASS] test_traversals
+[RUN ] test_ownership
+[PASS] test_ownership
+----------------------------------------
+Tests run: 8 | Passed: 8 | Failed: 0
+Assertions run: 89 | Failed: 0
+----------------------------------------
+Running build/tests/test_stack ...
+[RUN ] test_stack_null_args
+[PASS] test_stack_null_args
+[RUN ] test_stack_empty
+[PASS] test_stack_empty
+[RUN ] test_stack_basic_ops
+[PASS] test_stack_basic_ops
+[RUN ] test_stack_1000_items
+[PASS] test_stack_1000_items
+[RUN ] test_stack_ownership
+[PASS] test_stack_ownership
+----------------------------------------
+Tests run: 5 | Passed: 5 | Failed: 0
+Assertions run: 3052 | Failed: 0
+----------------------------------------
+Running build/tests/test_queue ...
+[RUN ] test_queue_null_args
+[PASS] test_queue_null_args
+[RUN ] test_queue_empty
+[PASS] test_queue_empty
+[RUN ] test_queue_fifo
+[PASS] test_queue_fifo
+[RUN ] test_queue_wrap_around_growth
+[PASS] test_queue_wrap_around_growth
+[RUN ] test_queue_foreach
+[PASS] test_queue_foreach
+[RUN ] test_queue_ownership
+[PASS] test_queue_ownership
+----------------------------------------
+Tests run: 6 | Passed: 6 | Failed: 0
+Assertions run: 134 | Failed: 0
+----------------------------------------
+Running build/tests/test_tree ...
+[RUN ] test_tree_null_args
+[PASS] test_tree_null_args
+[RUN ] test_tree_single_node
+[PASS] test_tree_single_node
+[RUN ] test_tree_hierarchy_and_removal
+[PASS] test_tree_hierarchy_and_removal
+[RUN ] test_tree_ownership
+[PASS] test_tree_ownership
+----------------------------------------
+Tests run: 4 | Passed: 4 | Failed: 0
+Assertions run: 57 | Failed: 0
+----------------------------------------
+Running build/tests/test_heap ...
+[RUN ] test_heap_null_args
+[PASS] test_heap_null_args
+[RUN ] test_heap_empty
+[PASS] test_heap_empty
+[RUN ] test_heap_validity_small
+[PASS] test_heap_validity_small
+[RUN ] test_heap_1000_min
+[PASS] test_heap_1000_min
+[RUN ] test_heap_1000_max
+[PASS] test_heap_1000_max
+[RUN ] test_heap_update_and_remove_at
+[PASS] test_heap_update_and_remove_at
+[RUN ] test_heap_ownership
+[PASS] test_heap_ownership
+----------------------------------------
+Tests run: 7 | Passed: 7 | Failed: 0
+Assertions run: 6127 | Failed: 0
+----------------------------------------
+Running build/tests/test_avl ...
+[RUN ] test_avl_null_args
+[PASS] test_avl_null_args
+[RUN ] test_avl_rotations
+[PASS] test_avl_rotations
+[RUN ] test_avl_duplicates_and_missing
+[PASS] test_avl_duplicates_and_missing
+[RUN ] test_avl_lower_bound
+[PASS] test_avl_lower_bound
+[RUN ] test_avl_1000_ascending
+[PASS] test_avl_1000_ascending
+[RUN ] test_avl_1000_descending_and_random
+[PASS] test_avl_1000_descending_and_random
+[RUN ] test_avl_delete_every_other
+[PASS] test_avl_delete_every_other
+[RUN ] test_avl_ownership
+[PASS] test_avl_ownership
+----------------------------------------
+Tests run: 8 | Passed: 8 | Failed: 0
+Assertions run: 4563 | Failed: 0
+----------------------------------------
+Running build/tests/test_hashtable ...
+[RUN ] test_ht_null_and_safety
+[PASS] test_ht_null_and_safety
+[RUN ] test_ht_wrong_key_kind
+[PASS] test_ht_wrong_key_kind
+[RUN ] test_ht_set_usage_null_values
+[PASS] test_ht_set_usage_null_values
+[RUN ] test_ht_10000_ints_and_removal
+[PASS] test_ht_10000_ints_and_removal
+[RUN ] test_ht_string_keys_and_ownership
+[PASS] test_ht_string_keys_and_ownership
+[RUN ] test_ht_colliding_keys
+[PASS] test_ht_colliding_keys
+----------------------------------------
+Tests run: 6 | Passed: 6 | Failed: 0
+Assertions run: 65090 | Failed: 0
+----------------------------------------
+Running build/tests/test_types ...
+[RUN ] test_types_defaults_and_strings
+[PASS] test_types_defaults_and_strings
+[RUN ] test_stop_destroy_frees_passengers
+[PASS] test_stop_destroy_frees_passengers
+[RUN ] test_bus_destroy_frees_journey
+[PASS] test_bus_destroy_frees_journey
+[RUN ] test_depot_destroy_does_not_free_buses
+[PASS] test_depot_destroy_does_not_free_buses
+[RUN ] test_route_and_stops
+[PASS] test_route_and_stops
+[RUN ] test_trip_cmp
+[PASS] test_trip_cmp
+[RUN ] test_route_priority_max_heap
+[PASS] test_route_priority_max_heap
+----------------------------------------
+Tests run: 7 | Passed: 7 | Failed: 0
+Assertions run: 78 | Failed: 0
+----------------------------------------
+Running build/tests/test_graph ...
+[RUN ] test_graph_node_operations
+[PASS] test_graph_node_operations
+[RUN ] test_graph_edge_operations
+[PASS] test_graph_edge_operations
+[RUN ] test_graph_haversine_and_speed
+[PASS] test_graph_haversine_and_speed
+[RUN ] test_graph_spatial_queries
+[PASS] test_graph_spatial_queries
+[RUN ] test_graph_components
+[PASS] test_graph_components
+[RUN ] test_graph_save_load
+[PASS] test_graph_save_load
+[RUN ] test_graph_synthetic_grid
+[PASS] test_graph_synthetic_grid
+----------------------------------------
+Tests run: 7 | Passed: 7 | Failed: 0
+Assertions run: 142 | Failed: 0
+----------------------------------------
+Running build/tests/test_pathfind ...
+[RUN ] test_hand_worked_answers
+[PASS] test_hand_worked_answers
+[RUN ] test_test_graph_queries
+[PASS] test_test_graph_queries
+[RUN ] test_oracle_and_exploration_count
+[PASS] test_oracle_and_exploration_count
+[RUN ] test_pathfind_edge_cases
+[PASS] test_pathfind_edge_cases
+----------------------------------------
+Tests run: 4 | Passed: 4 | Failed: 0
+Assertions run: 9229 | Failed: 0
+----------------------------------------
+Running build/tests/test_reroute ...
+[RUN ] test_basic_track_and_path
+[PASS] test_basic_track_and_path
+[RUN ] test_block_reroute_undo
+[PASS] test_block_reroute_undo
+[RUN ] test_block_edge_no_route_uses_it
+[PASS] test_block_edge_no_route_uses_it
+[RUN ] test_block_already_blocked_noop
+[PASS] test_block_already_blocked_noop
+[RUN ] test_traffic_factor_threshold
+[PASS] test_traffic_factor_threshold
+[RUN ] test_unreachable_then_recover
+[PASS] test_unreachable_then_recover
+[RUN ] test_two_routes_sorted_order
+[PASS] test_two_routes_sorted_order
+[RUN ] test_check_and_reroute
+[PASS] test_check_and_reroute
+[RUN ] test_history_describe
+[PASS] test_history_describe
+[RUN ] test_destroy_with_history
+[PASS] test_destroy_with_history
+[RUN ] test_spec_reroute_undo_cases
+[PASS] test_spec_reroute_undo_cases
+----------------------------------------
+Tests run: 11 | Passed: 11 | Failed: 0
+Assertions run: 122 | Failed: 0
+----------------------------------------
+Running build/tests/test_traffic_sim ...
+[RUN ] test_factor_range
+[PASS] test_factor_range
+[RUN ] test_near_one_at_night
+[PASS] test_near_one_at_night
+[RUN ] test_peak_ordering
+[PASS] test_peak_ordering
+[RUN ] test_primary_vs_tertiary
+[PASS] test_primary_vs_tertiary
+[RUN ] test_rain_multiplier
+[PASS] test_rain_multiplier
+[RUN ] test_determinism
+[PASS] test_determinism
+[RUN ] test_apply_sets_all_edges_not_blocked
+[PASS] test_apply_sets_all_edges_not_blocked
+----------------------------------------
+Tests run: 7 | Passed: 7 | Failed: 0
+Assertions run: 147 | Failed: 0
+----------------------------------------
+Running build/tests/test_traffic_client ...
+[RUN ] test_build_url
+[PASS] test_build_url
+[RUN ] test_redact_url
+[PASS] test_redact_url
+[RUN ] test_parse_flow_json
+[PASS] test_parse_flow_json
+[RUN ] test_updater_live_success
+[PASS] test_updater_live_success
+[RUN ] test_updater_http_403_fallback
+[PASS] test_updater_http_403_fallback
+[RUN ] test_updater_low_confidence_ignored
+[PASS] test_updater_low_confidence_ignored
+[RUN ] test_updater_max_calls
+[PASS] test_updater_max_calls
+[RUN ] test_updater_offline
+[PASS] test_updater_offline
+[RUN ] test_updater_no_key
+[PASS] test_updater_no_key
+[RUN ] test_load_corridors
+[PASS] test_load_corridors
+[RUN ] test_env_loader
+[PASS] test_env_loader
+----------------------------------------
+Tests run: 11 | Passed: 11 | Failed: 0
+Assertions run: 74 | Failed: 0
+----------------------------------------
+Running build/tests/test_osm_loader ...
+[RUN ] test_junction_detection_and_edges
+[PASS] test_junction_detection_and_edges
+[RUN ] test_osm_speeds_and_clamping
+[PASS] test_osm_speeds_and_clamping
+[RUN ] test_bus_stop_snapping
+[PASS] test_bus_stop_snapping
+[RUN ] test_error_cases
+[PASS] test_error_cases
+----------------------------------------
+Tests run: 4 | Passed: 4 | Failed: 0
+Assertions run: 60 | Failed: 0
+----------------------------------------
+Running build/tests/test_graph_scc ...
+[RUN ] test_scc_null_and_empty
+[PASS] test_scc_null_and_empty
+[RUN ] test_scc_single_node
+[PASS] test_scc_single_node
+[RUN ] test_scc_3_cycle
+[PASS] test_scc_3_cycle
+[RUN ] test_scc_chain
+[PASS] test_scc_chain
+[RUN ] test_scc_two_cycles_tie_rule
+[PASS] test_scc_two_cycles_tie_rule
+[RUN ] test_scc_synthetic_grid
+[PASS] test_scc_synthetic_grid
+[RUN ] test_scc_blocked_edges_ignored
+[PASS] test_scc_blocked_edges_ignored
+[RUN ] test_scc_deep_chain_iterative
+[PASS] test_scc_deep_chain_iterative
+[RUN ] test_scc_oracle_reachability
+[PASS] test_scc_oracle_reachability
+----------------------------------------
+Tests run: 9 | Passed: 9 | Failed: 0
+Assertions run: 36670 | Failed: 0
+----------------------------------------
+Running build/tests/test_demand_model ...
+[RUN ] test_demand_expected_hand_check
+[PASS] test_demand_expected_hand_check
+[RUN ] test_demand_features
+[PASS] test_demand_features
+[RUN ] test_demand_calendar
+[PASS] test_demand_calendar
+[RUN ] test_demand_event_stops
+[PASS] test_demand_event_stops
+[RUN ] test_demand_stop_scale
+[PASS] test_demand_stop_scale
+[RUN ] test_demand_stops_from_graph
+[PASS] test_demand_stops_from_graph
+[RUN ] test_demand_poisson_sampler
+[PASS] test_demand_poisson_sampler
+[RUN ] test_demand_generation_and_csv
+[PASS] test_demand_generation_and_csv
+[RUN ] test_demand_csv_errors_and_categories
+[PASS] test_demand_csv_errors_and_categories
+[RUN ] test_demand_days_and_stops_dimension_check
+[PASS] test_demand_days_and_stops_dimension_check
+[RUN ] test_demand_stops_anchored_selection
+[PASS] test_demand_stops_anchored_selection
+[RUN ] test_demand_stops_anchored_errors
+[PASS] test_demand_stops_anchored_errors
+----------------------------------------
+Tests run: 12 | Passed: 12 | Failed: 0
+Assertions run: 23905 | Failed: 0
+----------------------------------------
+Running build/tests/test_ai_inference ...
+[RUN ] test_inference_mini_fixture
+[PASS] test_inference_mini_fixture
+[RUN ] test_inference_hand_written_and_edge_cases
+[PASS] test_inference_hand_written_and_edge_cases
+[RUN ] test_inference_malformed_files
+[PASS] test_inference_malformed_files
+----------------------------------------
+Tests run: 3 | Passed: 3 | Failed: 0
+Assertions run: 2515 | Failed: 0
+----------------------------------------
+Running build/tests/test_ai_demand ...
+[RUN ] test_moving_avg
+[PASS] test_moving_avg
+[RUN ] test_ols_exact_recovery
+[PASS] test_ols_exact_recovery
+[RUN ] test_ols_unseen_event
+[PASS] test_ols_unseen_event
+[RUN ] test_ols_band_fallback
+[PASS] test_ols_band_fallback
+[RUN ] test_predictions_never_negative
+[PASS] test_predictions_never_negative
+[RUN ] test_dp_evaluate
+[PASS] test_dp_evaluate
+[RUN ] test_ownership
+[PASS] test_ownership
+----------------------------------------
+Tests run: 7 | Passed: 7 | Failed: 0
+Assertions run: 213 | Failed: 0
+----------------------------------------
+Running build/tests/test_network ...
+[RUN ] test_network_line_graph
+[PASS] test_network_line_graph
+[RUN ] test_network_matrix_line_graph
+[PASS] test_network_matrix_line_graph
+[RUN ] test_network_grid_fixture
+[PASS] test_network_grid_fixture
+[RUN ] test_network_reroute_integration
+[PASS] test_network_reroute_integration
+[RUN ] test_network_matrix_vs_astar
+[PASS] test_network_matrix_vs_astar
+[RUN ] test_network_route_demands
+[PASS] test_network_route_demands
+[RUN ] test_network_errors
+[PASS] test_network_errors
+----------------------------------------
+Tests run: 7 | Passed: 7 | Failed: 0
+Assertions run: 570 | Failed: 0
+----------------------------------------
+Running build/tests/test_fleet_alloc ...
+[RUN ] test_fleet_equal
+[PASS] test_fleet_equal
+[RUN ] test_fleet_proportional
+[PASS] test_fleet_proportional
+[RUN ] test_fleet_greedy_marginal_vs_demand_per_bus
+[PASS] test_fleet_greedy_marginal_vs_demand_per_bus
+[RUN ] test_fleet_wait_proxy_by_hand
+[PASS] test_fleet_wait_proxy_by_hand
+[RUN ] test_fleet_greedy_optimality_oracle
+[PASS] test_fleet_greedy_optimality_oracle
+[RUN ] test_fleet_plan_moves_all_cases
+[PASS] test_fleet_plan_moves_all_cases
+[RUN ] test_fleet_pick_nearest
+[PASS] test_fleet_pick_nearest
+[RUN ] test_fleet_edge_cases
+[PASS] test_fleet_edge_cases
+[RUN ] test_fleet_greedy_optimality_oracle_spec
+[PASS] test_fleet_greedy_optimality_oracle_spec
+----------------------------------------
+Tests run: 9 | Passed: 9 | Failed: 0
+Assertions run: 1898 | Failed: 0
+----------------------------------------
+Running build/tests/test_anomaly ...
+[RUN ] test_anomaly_zscore_by_hand
+[PASS] test_anomaly_zscore_by_hand
+[RUN ] test_anomaly_gating_by_hand
+[PASS] test_anomaly_gating_by_hand
+[RUN ] test_anomaly_cooldown
+[PASS] test_anomaly_cooldown
+[RUN ] test_anomaly_window_resets
+[PASS] test_anomaly_window_resets
+[RUN ] test_anomaly_statistical_false_alarm
+[PASS] test_anomaly_statistical_false_alarm
+[RUN ] test_anomaly_statistical_power
+[PASS] test_anomaly_statistical_power
+[RUN ] test_anomaly_null_and_bounds
+[PASS] test_anomaly_null_and_bounds
+----------------------------------------
+Tests run: 7 | Passed: 7 | Failed: 0
+Assertions run: 45 | Failed: 0
+----------------------------------------
+Running build/tests/test_sim ...
+[RUN ] test_sim_config_and_errors
+[PASS] test_sim_config_and_errors
+[RUN ] test_sim_scripted_timeline
+[PASS] test_sim_scripted_timeline
+[RUN ] test_sim_capacity
+[PASS] test_sim_capacity
+[RUN ] test_sim_warmup
+[PASS] test_sim_warmup
+[RUN ] test_sim_censoring
+[PASS] test_sim_censoring
+[RUN ] test_sim_percentiles
+[PASS] test_sim_percentiles
+[RUN ] test_sim_route_stats
+[PASS] test_sim_route_stats
+[RUN ] test_sim_dwell_with_passengers
+[PASS] test_sim_dwell_with_passengers
+[RUN ] test_sim_anomaly_detection_and_dispatch
+[PASS] test_sim_anomaly_detection_and_dispatch
+[RUN ] test_sim_reallocation_to_forecast
+[PASS] test_sim_reallocation_to_forecast
+[RUN ] test_sim_hysteresis_and_symmetric_demand
+[PASS] test_sim_hysteresis_and_symmetric_demand
+[RUN ] test_sim_dynamic_reassignment
+[PASS] test_sim_dynamic_reassignment
+[RUN ] test_sim_blocked_edge
+[PASS] test_sim_blocked_edge
+[RUN ] test_sim_traffic_coupling
+[PASS] test_sim_traffic_coupling
+[RUN ] test_sim_random_arrivals_statistics
+[PASS] test_sim_random_arrivals_statistics
+[RUN ] test_sim_scenario_semantics
+[PASS] test_sim_scenario_semantics
+[RUN ] test_sim_breakdown_and_repair
+[PASS] test_sim_breakdown_and_repair
+[RUN ] test_sim_sanity_band
+[PASS] test_sim_sanity_band
+[RUN ] test_sim_memory
+[PASS] test_sim_memory
+[RUN ] test_sim_spacing_by_time_positions
+[PASS] test_sim_spacing_by_time_positions
+[RUN ] test_sim_spacing_by_time_timeline_vs_legacy
+[PASS] test_sim_spacing_by_time_timeline_vs_legacy
+[RUN ] test_sim_spacing_by_time_three_buses
+[PASS] test_sim_spacing_by_time_three_buses
+[RUN ] test_sim_spacing_config_validation
+[PASS] test_sim_spacing_config_validation
+----------------------------------------
+Tests run: 23 | Passed: 23 | Failed: 0
+Assertions run: 292 | Failed: 0
+----------------------------------------
+Running build/tests/test_sim_ext ...
+[RUN ] test_ext_reassign_config_validation
+[PASS] test_ext_reassign_config_validation
+[RUN ] test_ext_worked_dump_vs_drain
+[PASS] test_ext_worked_dump_vs_drain
+[RUN ] test_ext_request_move_errors
+[PASS] test_ext_request_move_errors
+[RUN ] test_ext_set_policy_and_force_decision
+[PASS] test_ext_set_policy_and_force_decision
+[RUN ] test_ext_rain_and_event_getters
+[PASS] test_ext_rain_and_event_getters
+[RUN ] test_ext_stop_hour_arrivals
+[PASS] test_ext_stop_hour_arrivals
+[RUN ] test_ext_bus_motion
+[PASS] test_ext_bus_motion
+[RUN ] test_ext_loop_observer
+[PASS] test_ext_loop_observer
+[RUN ] test_ext_controller_drain
+[PASS] test_ext_controller_drain
+[RUN ] test_ext_memory_mid_run
+[PASS] test_ext_memory_mid_run
+----------------------------------------
+Tests run: 10 | Passed: 10 | Failed: 0
+Assertions run: 252 | Failed: 0
+----------------------------------------
+Running build/tests/test_eval ...
+[RUN ] test_eval_t_crit_and_mean_sd
+[PASS] test_eval_t_crit_and_mean_sd
+[RUN ] test_eval_paired_stats_hand_values
+[PASS] test_eval_paired_stats_hand_values
+[RUN ] test_eval_poisson_tail_and_median
+[PASS] test_eval_poisson_tail_and_median
+[RUN ] test_eval_scenario_helpers
+[PASS] test_eval_scenario_helpers
+[RUN ] test_eval_determinism_and_paired_design
+[PASS] test_eval_determinism_and_paired_design
+----------------------------------------
+Tests run: 5 | Passed: 5 | Failed: 0
+Assertions run: 126 | Failed: 0
+----------------------------------------
+Running build/tests/test_registry ...
+[RUN ] test_reg_tree_structure
+[PASS] test_reg_tree_structure
+[RUN ] test_reg_hash_lookups
+[PASS] test_reg_hash_lookups
+[RUN ] test_reg_timetable_worked_example
+[PASS] test_reg_timetable_worked_example
+[RUN ] test_reg_replan_from
+[PASS] test_reg_replan_from
+[RUN ] test_reg_sync_move_breakdown_reserve
+[PASS] test_reg_sync_move_breakdown_reserve
+[RUN ] test_reg_journeys_observer_and_cap
+[PASS] test_reg_journeys_observer_and_cap
+[RUN ] test_reg_route_board
+[PASS] test_reg_route_board
+[RUN ] test_reg_errors_and_memory
+[PASS] test_reg_errors_and_memory
+----------------------------------------
+Tests run: 8 | Passed: 8 | Failed: 0
+Assertions run: 278 | Failed: 0
+----------------------------------------
+Running build/tests/test_api_json ...
+========================================
+Running API JSON & App Unit Tests
+========================================
+[RUN ] test_api_json_state_and_bus
+[PASS] test_api_json_state_and_bus
+[RUN ] test_api_json_routes
+[PASS] test_api_json_routes
+[RUN ] test_api_json_schedule_worked_example
+[PASS] test_api_json_schedule_worked_example
+[RUN ] test_api_json_tree_stops_and_escaping
+[PASS] test_api_json_tree_stops_and_escaping
+[RUN ] test_api_json_forecast
+[PASS] test_api_json_forecast
+[RUN ] test_api_strict_parsing_and_error_mapping
+[PASS] test_api_strict_parsing_and_error_mapping
+----------------------------------------
+Tests run: 6 | Passed: 6 | Failed: 0
+Assertions run: 245 | Failed: 0
+----------------------------------------
+Running build/tests/test_api_actions ...
+========================================
+Running API Action & Control Unit Tests
+========================================
+[RUN ] test_actions_scenario_block_and_undo
+[PASS] test_actions_scenario_block_and_undo
+[RUN ] test_actions_allocate_and_manual_move
+[PASS] test_actions_allocate_and_manual_move
+[RUN ] test_actions_inject_and_route_optimize
+[PASS] test_actions_inject_and_route_optimize
+[RUN ] test_actions_reset_and_seek
+[PASS] test_actions_reset_and_seek
+[RUN ] test_actions_eval_and_hardening
+[PASS] test_actions_eval_and_hardening
+----------------------------------------
+Tests run: 5 | Passed: 5 | Failed: 0
+Assertions run: 111 | Failed: 0
+----------------------------------------
+========================================
+ALL TEST SUITES PASSED SUCCESSFULLY
+========================================
+4.54user 1.92system 0:09.04elapsed 71%CPU (0avgtext+0avgdata 42356maxresident)k
+0inputs+16168outputs (0major+342298minor)pagefaults 0swaps

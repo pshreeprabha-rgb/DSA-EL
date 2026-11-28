@@ -1,128 +1,141 @@
-# Smart Public Transport Fleet & Route Optimization System (Bangalore BMTC)
-## Parts 1, 2, 3A & 3B-1: Road Graph, Routing, Demand Modelling, ML Inference, Fleet Allocation & Anomaly Core
+# Smart Public Transport Fleet & Route Optimization System
+## Parts 1–5: C11 Core Engine, Discrete-Event Simulation, ML Demand Pipeline, REST API Server & React Dashboard
 
 ### 1. Project Overview
-The Smart Public Transport Fleet & Route Optimization System is an intelligent route planning, fleet scheduling, demand prediction, and live simulation platform designed for Bangalore's bus transit network (BMTC).
-- **Part 1**: Reusable C11 data structure library (`LinkedList`, `Stack`, `Queue`, `Tree`, `Heap`, `AVL`, `HashTable`, and shared domain types).
-- **Part 2**: Complete road network graph engine, A* and Dijkstra pathfinding with consistent heuristics, traffic-aware rerouting with atomic undo stack, Gaussian diurnal traffic simulation, live TomTom traffic flow integration with robust `.env` parsing, and OpenStreetMap Overpass road/stop ingestion.
-- **Part 3A**: Strongly Connected Components analysis (`graph_scc`), diurnal passenger demand generation with Poisson sampling (`demand_model`), scikit-learn Random Forest C inference engine (`ai_inference`), and three demand predictors (Moving Average, OLS per time-band with ridge regularisation, and Random Forest adapter) with unified evaluation framework (`ai_demand`).
+The Smart Public Transport Fleet & Route Optimization System is a route planning, fleet scheduling, demand prediction, discrete-event simulation, and REST/web-dashboard platform set on the central Bengaluru road network. **Data provenance**: bus stops and roads are ingested from OpenStreetMap (Overpass API / cached `data/graph_cache.txt`), transit routes are **constructed by this project** (longitude-strip partitioning and nearest-neighbour tours in `network.c` — **not** real BMTC routes or schedules), and passenger demand is **simulated** via an inhomogeneous Poisson model (`demand_model.c`, **not** BMTC ridership data). Ambient congestion uses a simulated diurnal model, with an optional live TomTom flow overlay on 8 mapped corridors.
 
-Engineered with zero warnings under `-std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror`, verified with AddressSanitizer, UndefinedBehaviorSanitizer, and Valgrind (zero leaks, zero memory errors).
+- **Part 1**: Reusable generic C11 data structure library (`LinkedList`, `Stack`, `Queue`, `Tree`, `Heap`, `AVL`, `HashTable`, and shared domain types).
+- **Part 2**: Road network graph engine (`graph`), A* and Dijkstra pathfinding (`pathfind`), traffic-aware detour/undo stack (`reroute`), Gaussian diurnal traffic simulation (`traffic_sim`), live TomTom flow client with `.env` loading (`traffic_client`), and OpenStreetMap Overpass/cache ingestion (`osm_loader`).
+- **Part 3A & ML Pipeline (`ml/`)**: Strongly Connected Components decomposition (`graph_scc`), inhomogeneous Poisson demand generation & anchored stop selection (`demand_model`), Python `scikit-learn` Random Forest training/export (`ml/train_model.py`), float32-parity C inference (`ai_inference`), and Moving Average / OLS / Random Forest predictors (`ai_demand`).
+- **Part 3B-1**: Bus route network model & all-pairs travel-time matrix (`network`), fleet allocation strategies & greedy move planner (`fleet_alloc`), and real-time Poisson anomaly detector (`anomaly`).
+- **Part 3B-2 & Part 3C-1**: Deterministic discrete-event simulation engine (`sim`) supporting time/stop initial bus spacing, `SIM_REASSIGN_DUMP` and `SIM_REASSIGN_DRAIN` fleet reassignment, live move/policy control, and loop observer callbacks.
+- **Part 3C-2**: Multi-seed paired statistical evaluator (`eval`), cold-start holdout pipeline (`scripts/run_coldstart.sh`), and anomaly validation (`anomaly-eval`). Full 30-seed results are reported in [../docs/RESULTS.md](../docs/RESULTS.md).
+- **Part 3D**: In-memory operational `Registry` (`registry`) unifying a hierarchical `Tree`, $O(1)$ `HashTable` indices, `Avl` timetable, `LinkedList` loop history, and `Heap` route priority board.
+- **Part 4A & 4B**: Multi-threaded CivetWeb REST API server (`transport_server` across `api_platform`, `api_app`, `api_json`, `api_http`) with background simulation stepping and unlocked live traffic polling.
+- **Part 5 (`../frontend/`)**: React 19 + TypeScript + Vite + Leaflet + Recharts operational dashboard (`npm test`, `npm run lint`, `npm run build`) plus standalone mock server (`frontend/mock/`).
+
+Engineered with zero warnings under `-std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror`, with **27 backend test suites** (`206` tests, `156084` assertions) verified under AddressSanitizer, UndefinedBehaviorSanitizer, Valgrind (zero leaks/errors), and ThreadSanitizer (`make tsan`), alongside **10 Vitest files** (`65` tests) on the frontend.
 
 ---
 
 ### 2. Folder Structure
 ```text
-project/
+transport/
+  Makefile                    # Root targets: backend-test, eval, server, frontend-install, frontend-test, check
+  README.md                   # Top-level project overview, quick start, and known limitations
   backend/
     include/
-      common.h         # Status codes, status_to_string, shared callback function pointer types
-      types.h          # Domain entity models (Stop, Route, Bus, Trip, Edge, Passenger, etc.)
-      linkedlist.h     # Doubly linked list with head, tail, and size tracking
-      stack.h          # Dynamic array LIFO stack with 0-indexed top access
-      queue.h          # Circular-buffer FIFO queue with wrap-around resizing
-      tree.h           # General tree (first-child / next-sibling representation)
-      heap.h           # Binary heap with dynamic increase/decrease-key indexing
-      avl.h            # Self-balancing AVL tree with LL/RR/LR/RL rotations
-      hashtable.h      # Separate chaining hash table (int64_t and string keys)
-      graph.h          # Road network graph (nodes, edges, haversine, components, cache I/O)
-      pathfind.h       # A* and Dijkstra pathfinding with PathResult and cost modes
-      reroute.h        # RouteManager with route tracking, block/reroute, and undo stack
-      traffic_sim.h    # Diurnal traffic simulation model (Gaussian rush-hour bumps)
-      traffic_client.h # TomTom live traffic client, URL builder/redacter, .env loader
-      osm_loader.h     # OpenStreetMap Overpass road parser, stop snapper, and cache loader
-      graph_scc.h      # Tarjan's SCC decomposition and largest SCC extractor
-      demand_model.h   # Inhomogeneous Poisson demand generator and anchored stop selector
-      ai_inference.h   # Random Forest C inference engine (scikit-learn parity)
-      ai_demand.h      # Demand predictors (MA, OLS band, RF) and evaluation metrics
-      network.h        # Bus network model, strip partitioning, and travel-time matrix
-      fleet_alloc.h    # Fleet allocation (Equal, Hamilton, Greedy) and move planner
-      anomaly.h        # Real-time Poisson demand anomaly detector and cooldown gating
-    src/
-      common.c         # Implementation of status code to string mappings
-      types.c          # Constructors, destructors, and entity comparator helpers
-      linkedlist.c     # Doubly linked list implementation
-      stack.c          # Stack implementation
-      queue.c          # Queue implementation
-      tree.c           # General tree implementation
-      heap.c           # Binary heap implementation
-      avl.c            # AVL tree implementation
-      hashtable.c      # Separate chaining hash table implementation
-      graph.c          # Graph implementation (adjacency lists, spatial search, components)
-      pathfind.c       # A* and Dijkstra pathfinding implementations
-      reroute.c        # RouteManager implementation
-      traffic_sim.c    # Traffic simulation model implementation
-      traffic_client.c # TomTom traffic client and .env loader implementation
-      osm_loader.c     # OSM Overpass loader and stop snapper implementation
-      graph_scc.c      # Tarjan's SCC implementation
-      demand_model.c   # Diurnal demand generation and anchored stop selection
-      ai_inference.c   # Random Forest parser and inference traversal
-      ai_demand.c      # Moving Average, OLS band with ridge regularisation, RF adapter
-      network.c        # Network construction, nearest-neighbour tour, distance matrix
-      fleet_alloc.c    # Fleet allocation algorithms and move planner
-      anomaly.c        # Anomaly detector implementation
-    tests/
-      test_util.h      # Minimalist assertion and test-runner macro framework
-      test_linkedlist.c# Linked list test suite
-      test_stack.c     # Stack test suite (1000-element stress test)
-      test_queue.c     # Queue test suite (wrap-around growth test)
-      test_tree.c      # Tree test suite (3-level hierarchy and subtree deletion)
-      test_heap.c      # Heap test suite (min-heap, max-heap, decrease-key)
-      test_avl.c       # AVL test suite (1000-element balance, 500 deletions, rotations)
-      test_hashtable.c # Hash table test suite (10000-element resizing, collisions)
-      test_types.c     # Entity constructors, destructors, and priority heap tests
-      test_graph.c     # Graph creation, edge/node ops, spatial queries, save/load
-      test_pathfind.c  # Hand-verified routing, Dijkstra vs A*, exploration counts
-      test_reroute.c   # Route tracking, edge blocking, rerouting, atomic undo
-      test_traffic_sim.c # Diurnal curves, rain multiplier, determinism
-      test_traffic_client.c # URL parsing, flow JSON, live mock, .env loader
-      test_osm_loader.c # OSM junction detection, road/stop snapping, LCC extraction
-      test_graph_scc.c # Tarjan SCC unit tests
-      test_demand_model.c # Demand model unit tests
-      test_ai_inference.c # AI inference unit tests
-      test_ai_demand.c # Demand predictors unit tests
-      test_network.c   # Network model unit tests
-      test_fleet_alloc.c # Fleet allocation unit tests
-      test_anomaly.c   # Anomaly detection unit tests
+      common.h                # Status codes, status_to_string, shared callback typedefs
+      types.h                 # Domain entity models (Stop, Route, Bus, Trip, Edge, Passenger, etc.)
+      linkedlist.h            # Doubly linked list with head, tail, and size tracking
+      stack.h                 # Dynamic array LIFO stack with 0-indexed top access
+      queue.h                 # Circular-buffer FIFO queue with wrap-around resizing
+      tree.h                  # General tree (first-child / next-sibling representation)
+      heap.h                  # Binary heap with dynamic increase/decrease-key indexing
+      avl.h                   # Self-balancing AVL tree with LL/RR/LR/RL rotations
+      hashtable.h             # Separate chaining hash table (int64_t and string keys)
+      graph.h                 # Road network graph (nodes, edges, haversine, components, cache I/O)
+      pathfind.h              # A* and Dijkstra pathfinding with PathResult and cost modes
+      reroute.h               # RouteManager with route tracking, block/reroute, and undo stack
+      traffic_sim.h           # Diurnal traffic simulation model (Gaussian rush-hour bumps)
+      traffic_client.h        # TomTom live traffic client, URL builder/redactor, .env loader
+      osm_loader.h            # OpenStreetMap Overpass road parser, stop snapper, and cache loader
+      graph_scc.h             # Tarjan's SCC decomposition and largest SCC extractor
+      demand_model.h          # Inhomogeneous Poisson demand generator and anchored stop selector
+      ai_inference.h          # Random Forest C inference engine (scikit-learn parity)
+      ai_demand.h             # Demand predictors (MA, OLS band, RF) and evaluation metrics
+      network.h               # Constructed bus route model, strip partitioning, travel-time matrix
+      fleet_alloc.h           # Fleet allocation (Equal, Hamilton, Greedy) and move planner
+      anomaly.h               # Real-time Poisson demand anomaly detector and cooldown gating
+      sim.h                   # Discrete-event bus simulator, scenarios, dump/drain reassignment
+      eval.h                  # Paired multi-seed statistical evaluator and anomaly validation
+      registry.h              # Live transit registry (Tree, HashTable, Avl timetable, Heap, LinkedList)
+      api_platform.h          # POSIX mutex/thread/clock abstractions and signal handling
+      api_app.h               # Server application state, sim loop thread, live traffic poller thread
+      api_json.h              # JSON serializers/parsers and status-to-HTTP mapping
+      api_http.h              # CivetWeb HTTP server setup, routing, CORS, and handlers
+    src/                      # C11 implementations for all 27 core/API modules
+    tests/                    # test_util.h, test fixtures, and all 27 unit/integration test suites
+      test_linkedlist.c       # Linked list suite
+      test_stack.c            # Stack suite
+      test_queue.c            # Queue suite
+      test_tree.c             # Tree suite
+      test_heap.c             # Heap suite
+      test_avl.c              # AVL suite
+      test_hashtable.c        # Hash table suite
+      test_types.c            # Domain types & priority comparator suite
+      test_graph.c            # Graph ops & save/load suite
+      test_pathfind.c         # Dijkstra vs A* routing suite
+      test_reroute.c          # RerouteManager & atomic undo suite
+      test_traffic_sim.c      # Diurnal traffic curve suite
+      test_traffic_client.c   # TomTom client & .env loader suite
+      test_osm_loader.c       # OSM loader & stop snapper suite
+      test_graph_scc.c        # Tarjan SCC suite
+      test_demand_model.c     # Simulated Poisson demand suite
+      test_ai_inference.c     # Random Forest C parity inference suite
+      test_ai_demand.c        # Demand predictors (MA, OLS, RF) suite
+      test_network.c          # Route construction & travel-time matrix suite
+      test_fleet_alloc.c      # Fleet allocation & move planner suite
+      test_anomaly.c          # Anomaly detector suite
+      test_sim.c              # Discrete-event simulator core suite
+      test_sim_ext.c          # Simulator drain mode, live control & observer suite
+      test_eval.c             # Paired statistics & evaluation suite
+      test_registry.c         # Operational registry suite
+      test_api_json.c         # JSON serializer/parser & HTTP error mapping suite
+      test_api_actions.c      # REST mutation actions & live handler state suite
     tools/
-      transport_cli.c  # Command-line utility for demo, info, route, bench, osm, traffic
-    Makefile           # Strict build system (all, test, asan, valgrind, cli, clean)
-    .env.example       # Example environment template with mock API key
-    README.md          # Comprehensive project documentation
-  data/
-    corridors.txt      # Central Bangalore traffic corridors with coordinates
-    graph_cache.txt    # Cached Bangalore road graph (4,765 nodes, 8,156 edges)
-    test_graph.txt     # 20-node hand-verified central Bangalore reference graph
-  docs/
-    .gitkeep
-  .gitignore
+      transport_cli.c         # CLI tool (demo, info, route, bench, osm, traffic, eval-run, etc.)
+      transport_server.c      # CivetWeb HTTP REST API server binary
+    Makefile                  # Strict build targets (all, test, asan, valgrind, tsan, cli, server, smoke, eval, clean)
+    .env.example              # Example environment template for optional TOMTOM_API_KEY
+    README.md                 # Detailed backend technical documentation (this file)
+  frontend/                   # React 19 + TypeScript + Vite + Leaflet + Recharts dashboard
+    src/                      # App, api/, components/, hooks/, lib/, state/, test/, styles.css
+    mock/                     # Standalone animated mock API server (`npm run mock`)
+    scripts/                  # Frontend verification/helper scripts
+    package.json              # Scripts: dev, build, test, lint, mock, preview
+    vite.config.ts
+    vitest.config.ts
+    eslint.config.js
+  ml/                         # Python Random Forest training & fixture generation (`train_model.py`, `requirements.txt`)
+  scripts/                    # End-to-end ML, coldstart, smoke, stress, Valgrind & contract scripts
+  data/                       # Cached OSM graph (`graph_cache.txt`), corridors, RF model, CSVs & eval outputs
+  docs/                       # `RESULTS.md`, `ARCHITECTURE.md`, `SETUP.md`, `ATTRIBUTION.md`, `DEMO.md`, `api_contract.md`, `frontend_notes.md`, `raw/`, `mock/`
 ```
 
 ---
 
 ### 3. Build and Test Commands
-The build system uses GNU Make with strict compiler flags (`-std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude`). External libraries used: `libcurl` and `libcjson`.
+The backend uses GNU Make with strict compiler flags (`-std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude`) plus `libcurl`, `libcjson`, `libcivetweb` (server), and `pthreads`.
 
 ```bash
-cd project/backend
+# From repo root: run all backend (27 C suites) + frontend (10 Vitest files) checks
+make check
 
-# Build the static library (build/libtransport_core.a)
-make all
+# Backend build, test, sanitizer, server, and evaluation targets
+cd backend
+make all        # Build static library (build/libtransport_core.a)
+make test       # Build and run all 27 test suites
+make asan       # Build and run all 27 test suites with ASan + UBSan
+make valgrind   # Run all 27 test suites under Valgrind memcheck
+make cli        # Build tools/transport_cli -> build/transport_cli
+make server     # Build tools/transport_server -> build/transport_server
+make smoke      # Build server and run scripts/api_smoke.sh
+make tsan       # ThreadSanitizer server + test + smoke + stress run
+make eval-quick # 5-seed paired simulation quick check
+make eval       # Full 30-seed eval-run + coldstart + anomaly-eval
+make clean      # Remove build/, build_asan/, build_tsan/
+```
 
-# Build and execute all 21 test suites
-make test
-
-# Build and run all 21 test suites with AddressSanitizer and UndefinedBehaviorSanitizer
-make asan
-
-# Run memory leak and access checks under Valgrind
-make valgrind
-
-# Build the transport_cli tool
-make cli
-
-# Clean all generated build artifacts and test binaries
-make clean
+```bash
+# Frontend build, lint, test, and dev server (from repo root)
+cd frontend
+npm ci
+npm test        # Vitest unit/component suites (10 files, 65 tests)
+npm run lint    # ESLint static analysis
+npm run build   # tsc --noEmit && vite build
+npm run dev     # Start Vite dev server (connects to backend on port 8080)
+npm run mock    # Start standalone mock server on port 8080
 ```
 
 ---
@@ -191,39 +204,39 @@ The CLI provides complete administrative control and benchmarking:
 ---
 
 ### 6. Thread-Safety Notice
-All Part 1 data structures and Part 2 graph, pathfinding, and updater modules are **NOT thread-safe**. External synchronization (e.g. read-write mutexes) must be applied when accessed across multiple threads in subsequent microservices (Part 4).
+All Part 1 data structures and Part 2/3 graph, pathfinding, network, simulation, and registry modules are **not internally thread-safe**. In the Part 4 HTTP server (`api_app.c`), concurrent access from the HTTP worker threads, the 50 ms simulation advance thread, and the 5 s traffic poller thread is synchronized externally via a shared POSIX mutex (`app_lock()` / `app_unlock()`).
 
 ---
 
-### 7. Architectural Mapping to Future Project Parts
-| Module | Role in Parts 3 - 5 |
+### 7. Architectural Mapping Across Modules
+| Module | Role Across the System |
 | :--- | :--- |
-| **`graph` & `pathfind`** | Core routing engine for BMTC bus navigation and schedule estimation. |
-| **`reroute`** | Powers the dynamic dispatch and disruption management engine in Part 3 and the undo/redo REST actions in Part 4. |
-| **`traffic_sim` & `traffic_client`** | Generates ambient city congestion for simulation ticks and live operational overlays. |
-| **`osm_loader`** | Ingests real BMTC routes and stop topologies for central Bangalore. |
+| **`graph` & `pathfind`** | Core routing engine for road paths, route leg construction, and travel-time estimation. |
+| **`reroute`** | Powers dynamic road-block detours and atomic `rm_undo` actions (`POST /api/route/block`, `POST /api/undo`). |
+| **`traffic_sim` & `traffic_client`** | Generates diurnal city congestion (`SIMULATED`) and overlays live TomTom flow telemetry onto 8 mapped corridors when enabled. |
+| **`osm_loader`** | Ingests OpenStreetMap road networks and bus-stop locations (`stops` and `roads` from OSM); transit routes are constructed separately by `network.c`. |
 
 ---
 
 ### 8. Error Codes & REST Mapping Contract
-Part 4 maps these core C status codes to standard HTTP REST status codes:
+`api_http_status_from_error()` in `src/api_json.c` maps core C `Status` codes to HTTP REST statuses and JSON error codes (while successful responses return `200 OK` in `src/api_http.c`):
 
-| Library Status | Meaning & Preconditions | Future HTTP Status (Part 4) |
+| Library Status | Meaning & Preconditions | HTTP Status & Error Code (`src/api_json.c`) |
 | :--- | :--- | :--- |
-| **`STATUS_OK` (0)** | Operation succeeded without errors. | `200 OK` / `201 Created` |
-| **`STATUS_ERR_NULL` (1)** | Required pointer argument is `NULL`. | `400 Bad Request` |
-| **`STATUS_ERR_NOMEM` (2)** | Memory allocation (`malloc`/`calloc`/`realloc`) failed. | `500 Internal Server Error` |
-| **`STATUS_ERR_NOT_FOUND` (3)** | Requested resource, route, or file not found. | `404 Not Found` |
-| **`STATUS_ERR_DUPLICATE` (4)** | Identifier already exists (e.g. duplicate route ID). | `409 Conflict` |
-| **`STATUS_ERR_EMPTY` (5)** | Container is empty (e.g. `rm_undo` on empty stack). | `400 Bad Request` |
-| **`STATUS_ERR_INVALID` (6)** | Out-of-range index, invalid coordinates, NaN, or malformed file/JSON. | `422 Unprocessable Entity` |
+| **`STATUS_OK` (`0`)** | Operation succeeded without errors. | `200 OK` (`src/api_http.c` success path) |
+| **`STATUS_ERR_NULL` (`1`)** | Required internal pointer argument is `NULL`. | `500 Internal Server Error` (`"internal"`) |
+| **`STATUS_ERR_NOMEM` (`2`)** | Memory allocation (`malloc`/`calloc`/`realloc`) failed. | `500 Internal Server Error` (`"internal"`) |
+| **`STATUS_ERR_NOT_FOUND` (`3`)** | Requested bus, stop, route, or resource was not found. | `404 Not Found` (`"not_found"`) |
+| **`STATUS_ERR_DUPLICATE` (`4`)** | Identifier already exists (e.g., duplicate route ID). | `409 Conflict` (`"conflict"`) |
+| **`STATUS_ERR_EMPTY` (`5`)** | Container/stack is empty (e.g., `rm_undo` on empty stack). | `409 Conflict` (`"conflict"`) |
+| **`STATUS_ERR_INVALID` (`6`)** | Invalid JSON/argument, out-of-range index, NaN, or invalid state transition. | `400 Bad Request` (`"invalid_argument"`) |
 
 ---
 
 ### 9. Part 3A: Passenger Demand Modelling & C Inference Engine
 
 #### 9.1 Mathematical Formulation
-The demand model simulates realistic passenger arrivals at BMTC bus stops using an inhomogeneous Poisson process:
+The demand model simulates synthetic passenger arrivals at OpenStreetMap-sourced bus stops using an inhomogeneous Poisson process (`demand_model.c`, not real ridership data):
 $$\lambda(\text{stop}, t) = \text{base}(\text{type}) \times \text{scale} \times \text{profile}(\text{type}, \text{hour}) \times \text{daymult} \times \text{rain\_mult} \times \text{event\_mult}$$
 
 - **Stop Profiles & Base Rates**:
@@ -371,8 +384,8 @@ Detects real-time demand spikes at bus stops (`anomaly.h` / `anomaly.c`):
 - **Poisson Z-Score**:
   $$z = \frac{\text{observed} - \text{expected}}{\sqrt{\max(\text{expected}, v_{\text{floor}})}}$$
   where default variance floor $v_{\text{floor}} = 1.0$ prevents division by near-zero rates.
-- **Threshold & Gating Rationale**:
-  - `z_threshold = 3.0`: Under the null hypothesis of unperturbed Poisson arrivals, $P(Z > 3.0) < 0.0035$, ensuring an empirical false alarm rate of $\approx 0.35\%$ across independent windows.
+- **Threshold & Gating Rationale (and Measured Trade-offs)**:
+  - `z_threshold = 3.0`: Evaluated in `../docs/raw/anomaly_summary.json` across `30` seeds (`base_seed = 1000`) with a single simulated event at `event_stop = 13`: at default `z = 3.0`, the detector averages **`17.233` false alarms per day** (SD `4.470`) with **`0.104` precision** (`detection_rate = 1.0`, `median_delay_min = 15`). Higher thresholds reduce false alarms per day while keeping `detection_rate = 1.0` and `15` min median delay on that test event: `z = 3.5` (`7.267` FA/day, SD `2.935`, precision `0.216`), `z = 4.0` (`3.2` FA/day, SD `2.219`, precision `0.385`), and `z = 5.0` (`0.367` FA/day, SD `0.765`, precision `0.845`).
   - `min_observed = 5`: Suppresses spurious false positives when expected demand is very small (e.g., $\text{exp} = 0.01, \text{obs} = 4 \implies z = 3.99$, which would otherwise flag despite low absolute volume).
   - `cooldown_min = 60.0`: Once a stop flags an anomaly, subsequent spikes at the same stop are suppressed for 60 minutes to prevent alert storms during sustained events.
 
@@ -430,10 +443,10 @@ Part 3B-2 introduces a deterministic, discrete-event simulation engine for the B
   - **Hysteresis Filtering**:
     - Reallocation moves are executed only if the relative improvement in network waiting time proxy exceeds `realloc_hysteresis` (default 2% / 0.02):
       $$\frac{\text{proxy}_{\text{current}} - \text{proxy}_{\text{target}}}{\text{proxy}_{\text{current}}} \ge \text{realloc\_hysteresis}$$
-  - **Non-Disruptive Move Execution**:
-    - Buses selected for reassignment are marked with `pending_route`.
-    - The bus completes its current leg to avoid stranding on active roads.
-    - Upon arrival at its next stop, remaining onboard passengers are forced-dumped (`forced_dumps += load`), and the bus transitions to `SIM_BUS_DEADHEAD` heading to the entry stop of its new route.
+  - **Reassignment Move Execution (`dump` vs `drain`)**:
+    - Buses selected for reassignment are marked with `pending_route` and finish their current active leg before executing any transfer.
+    - **`SIM_REASSIGN_DUMP` (`0`, library default in `sim_config_default()`)**: Upon arrival at its next stop, any remaining onboard passengers are forced-dumped (`forced_dumps += load`, `load = 0`) and the bus immediately transitions to `SIM_BUS_DEADHEAD` (or `SIM_BUS_RESERVE` when `pending_route == -1`).
+    - **`SIM_REASSIGN_DRAIN` (`1`, CLI `--reassign drain`, `eval_run_single`, and server default)**: With `pending_route != -2`, the bus skips new boarding (`sim.c:457`), continues along its route alighting passengers normally, and executes the move (recomputing entry stop and deadhead time via `network_entry_time_s`) only once `load == 0`, keeping `forced_dumps = 0`.
 - **Emergency Reserve Dispatch**:
   - If `anomaly_dispatch` is enabled, any anomaly flagged by the real-time Poisson detector triggers an immediate dispatch of the nearest reserve bus from the depot to the affected stop.
 
@@ -456,7 +469,7 @@ The simulation engine provides two distinct initial bus positioning and dispatch
 
 #### 11.6 Scenarios & Perturbations
 - **Weather (`SIM_SCEN_RAIN_ON` / `SIM_SCEN_RAIN_OFF`)**: Toggles rain factor, modifying road congestion and demand multipliers.
-- **Demand Surges (`SIM_SCEN_EVENT_ON` / `SIM_SCEN_EVENT_OFF`)**: Activates 3.0x demand surge at specific stops.
+- **Demand Surges (`SIM_SCEN_EVENT_ON` / `SIM_SCEN_EVENT_OFF`)**: Activates a **2.5x** (`+150%`) demand surge at the specified stop (`event_mult = 2.5` in `src/demand_model.c`, called via `st->is_event_active` in `src/sim.c`).
 - **Breakdown & Repair (`SIM_SCEN_BREAKDOWN` / `SIM_SCEN_REPAIR`)**: Breaks down a bus, stranding onboard passengers and removing it from route cycle.
 - **Road Blockages (`SIM_SCEN_BLOCK_EDGE` / `SIM_SCEN_UNBLOCK_EDGE`)**: Blocks road edges, rerouting bus legs via shortest detour using `RouteManager`.
 
@@ -476,7 +489,7 @@ Both `sim-run` and `sim-compare` CLI commands explicitly log the loading status 
 **No Silent Fallbacks**: Silent fallback between models is eliminated. In `sim-run`, if the requested predictor (`ma`, `ols`, `rf`, or the default `ma`) cannot be built, the command exits immediately with code 1. In `sim-compare`, if the training data cannot be loaded for `ma`, every row that uses it (`fixed_proportional`, `greedy_spec_ma`, `greedy_marginal_ma`) is skipped and reported as `skipped: training data not loaded: <path>`, and if the random forest model cannot be loaded, the `greedy_marginal_rf` row is skipped and reported as `skipped: model not loaded: <path>`.
 
 #### 11.9 Evaluation Outputs & Single-Seed Disclaimer
-> **Important Note on Single-Seed Results**: All `sim-run` and `sim-compare` results documented below and generated by the CLI stem from a single PRNG seed (`seed = 42`). They illustrate individual system trajectories rather than statistically aggregated benchmarks across random seeds. Comprehensive multi-seed Monte Carlo evaluation across varied traffic conditions and seeds is formally reserved for Part 3C. Furthermore, the steady-state analytic proxy evaluated in `alloc-demo` represents a simplified formula ($W \approx \sum C_r^2 / (2 B_r)$) that assumes deterministic headway, whereas the discrete-event simulation captures stochastic arrivals, vehicle bunching, capacity overflows, and tour headway distortions.
+> **Important Note on Single-Seed Results**: All `sim-run` and `sim-compare` results documented below and generated by the CLI stem from a single PRNG seed (`seed = 42`). They illustrate individual system trajectories rather than statistically aggregated benchmarks across random seeds. Full 30-seed paired Monte Carlo evaluation is implemented in **Part 3C-2** (`src/eval.c`, `transport_cli eval-run`, Section 13), and the complete 30-seed results are reported in **[../docs/RESULTS.md](../docs/RESULTS.md)**. Furthermore, the steady-state analytic proxy evaluated in `alloc-demo` represents a simplified formula ($W \approx \sum C_r^2 / (2 B_r)$) that assumes deterministic headway, whereas the discrete-event simulation captures stochastic arrivals, vehicle bunching, capacity overflows, and tour headway distortions.
 
 ##### Per-Route Comparison: Stop Spacing vs. Time Spacing (Equal Policy, Seed 42, Weekday)
 On `seed = 42`, per-route and overall boarded mean wait times under stop spacing and time spacing (`fixed_equal` policy) are:

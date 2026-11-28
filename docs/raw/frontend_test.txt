@@ -1,0 +1,58 @@
+
+> transport-frontend@0.1.0 test
+> vitest run
+
+
+ RUN  v5.1.2 /home/prabhashetty/transport/frontend
+
+ ✓ src/api/client.test.ts (6 tests) 267ms
+ ✓ src/api/validators.test.ts (3 tests) 305ms
+stderr | src/components/components.test.tsx > UI components > AppStateProvider shows Backend not reachable after a failed poll and clears on recovery
+[api] Contract mismatch on /api/routes (hour): expected number
+[api] Contract mismatch on /api/metrics (sim): expected object
+
+stderr | src/components/components.test.tsx > UI components > AppStateProvider refetches /api/geometry only when geometry_version changes
+[api] Contract mismatch on /api/routes (hour): expected number
+[api] Contract mismatch on /api/metrics (sim): expected object
+
+ ✓ src/components/components.test.tsx (6 tests) 871ms
+stderr | src/components/MapView.test.tsx > MapView blocked edge overlays > draws blocked line above routes with fixed-size Road blocked midpoint marker and removes it on undo/unblock
+[api] Contract mismatch on /api/routes (hour): expected number
+[api] Contract mismatch on /api/metrics (sim): expected object
+
+ ✓ src/components/MapView.test.tsx (1 test) 1517ms
+   ✓ MapView blocked edge overlays (1)
+     ✓ draws blocked line above routes with fixed-size Road blocked midpoint marker and removes it on undo/unblock 1491ms
+ ✓ src/components/Performance.test.tsx (1 test) 1731ms
+   ✓ MapView render stability under 1 Hz state polling (1)
+     ✓ does not re-render MapView when /api/state ticks repeatedly without geometry changes 1705ms
+ ✓ src/components/ControlPanel.test.tsx (17 tests) 5927ms
+   ✓ ControlPanel (17)
+     ✓ sends exact POST payload for Start action 1275ms
+     ✓ sends exact POST payload for Pause action 339ms
+     ✓ sends exact POST payload for Resume action 388ms
+     ✓ sends exact POST payload for Speed preset 536ms
+     ✓ sends exact POST payload for Seek HH:MM 358ms
+     ✓ asks for confirmation before Reset and does not post when cancelled 574ms
+     ✓ sends exact POST payload for Rain On and Rain Off 323ms
+     ✓ sends exact POST payload for Event On and Event Off 321ms
+     ✓ sends exact POST payload for Block Road, shows time_min toast, and pans once new block appears at next slice 336ms
+ ✓ src/components/Panels.test.tsx (10 tests) 2519ms
+   ✓ Dashboard, Demand, DsView, and CompareView (10)
+     ✓ DashboardPanel displays KPIs, exact server heap order, and reserve count 868ms
+     ✓ App renders workspace tabs and footer with TomTom attribution only when live 512ms
+ ✓ src/hooks/usePolling.test.ts (4 tests) 153ms
+ ✓ src/lib/format.test.ts (9 tests) 49ms
+ ✓ src/lib/interpolate.test.ts (8 tests) 26ms
+
+ Test Files  10 passed (10)
+      Tests  65 passed (65)
+   Start at  11:34:02
+   Duration  16.97s (environment 56%, setup 16%, tests 15%, import 8%, transform 3%, worker 2%)
+
+Environment  jsdom was created 10 times · 49.99s total, 56% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
+88.60user 12.60system 0:22.01elapsed 459%CPU (0avgtext+0avgdata 181832maxresident)k
+0inputs+24outputs (0major+365656minor)pagefaults 0swaps

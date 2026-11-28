@@ -1,0 +1,10 @@
+
+=== DIAGNOSTIC (fixed_equal, n=10 seeds, base_seed=1000) ===
+Variant                | Mean (s)     | SD (s)       | 95% CI
+-----------------------+--------------+--------------+--------------------------
+cap=60,traffic=1       |       835.56 |        20.26 | [821.07, 850.05]
+cap=60,traffic=0       |       473.89 |        17.81 | [461.15, 486.63]
+cap=1000,traffic=1     |       679.01 |        29.90 | [657.63, 700.40]
+cap=1000,traffic=0     |       473.34 |        17.59 | [460.76, 485.93]
+Reference fixed_equal alloc proxy at 09:00 (weekday, dry): 308.51 s
+

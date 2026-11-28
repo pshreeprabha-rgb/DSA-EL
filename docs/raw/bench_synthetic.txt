@@ -1,0 +1,16 @@
+[bench] Building 40x40 synthetic grid ...
+[bench] 1600 nodes, 6240 edges, 200 pairs, seed=42, hour=9, rain=0
+[bench] Results (200 pairs):
+  Found paths:            200 / 200 pairs
+  Cost matched:           200 / 200 (A* == Dijkstra within 1e-6)
+  A* explored:            118047 nodes total (avg 590.2/query)
+  Dijk explored:          164475 nodes total (avg 822.4/query)
+  Nodes-explored ratio:   0.718 (A* / Dijkstra)
+  A* savings:             28.2% fewer nodes explored
+  A* avg runtime:         792.3 us/query
+  Dijk avg runtime:       874.9 us/query
+
+[bench] Static vs Traffic Routing Comparison (200 valid pairs):
+  Static path under traffic avg time:    2572.60 s
+  Traffic-optimal path avg time:         2471.46 s
+  Traffic-aware routing improvement:     3.93%

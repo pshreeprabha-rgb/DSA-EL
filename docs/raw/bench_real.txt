@@ -1,0 +1,17 @@
+[bench] Loading OSM graph (../data/graph_cache.txt or ../data/osm_*.json) ...
+[bench] OSM loaded: 4765 nodes, 8156 edges
+[bench] 4765 nodes, 8156 edges, 200 pairs, seed=42, hour=9, rain=0
+[bench] Results (200 pairs):
+  Found paths:            192 / 200 pairs
+  Cost matched:           192 / 192 (A* == Dijkstra within 1e-6)
+  A* explored:            385728 nodes total (avg 1928.6/query)
+  Dijk explored:          478011 nodes total (avg 2390.1/query)
+  Nodes-explored ratio:   0.807 (A* / Dijkstra)
+  A* savings:             19.3% fewer nodes explored
+  A* avg runtime:         2415.9 us/query
+  Dijk avg runtime:       2399.0 us/query
+
+[bench] Static vs Traffic Routing Comparison (192 valid pairs):
+  Static path under traffic avg time:    1944.79 s
+  Traffic-optimal path avg time:         1828.02 s
+  Traffic-aware routing improvement:     6.00%

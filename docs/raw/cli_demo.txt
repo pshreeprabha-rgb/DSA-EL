@@ -1,0 +1,46 @@
+=== Demo: Spec 6-node Bangalore reference graph ===
+
+Nodes: A=0, B=1, C=2, D=3, E=4, F=5
+Edges (all bidirectional, length_m = 10 * time_s):
+  A-B(4s), A-C(2s), B-C(1s), B-D(5s), C-D(8s), C-E(10s), D-E(2s), D-F(6s), E-F(3s)
+
+--- Step 1: Static routes (no traffic) ---
+A->F:   A* static: 13.0 s, 130 m, 6 nodes, 5 edges explored=6
+  Path nodes: A -> C -> B -> D -> E -> F
+A->D:   A* static: 8.0 s, 80 m, 4 nodes, 3 edges explored=4
+  Path nodes: A -> C -> B -> D
+A->E:   A* static: 10.0 s, 100 m, 5 nodes, 4 edges explored=5
+  Path nodes: A -> C -> B -> D -> E
+
+--- Step 2: Block directed edge B->D (edge id 6), reroute ---
+Before block:
+  route 1 A->F: 13.0 s, 130 m, 6 nodes, 5 edges explored=6
+  Path nodes: A -> C -> B -> D -> E -> F
+  route 2 A->D: 8.0 s, 80 m, 4 nodes, 3 edges explored=4
+  Path nodes: A -> C -> B -> D
+
+Block summary: checked=2 rerouted=2 unreachable=0
+After block:
+  route 1 A->F: 15.0 s, 150 m, 4 nodes, 3 edges explored=6
+  Path nodes: A -> C -> E -> F
+  route 2 A->D: 10.0 s, 100 m, 3 nodes, 2 edges explored=4
+  Path nodes: A -> C -> D
+
+History size before undo: 1
+
+--- Step 3: Undo block ---
+Undid: "block edge 6"
+History size after undo: 0
+After undo:
+  route 1 A->F: 13.0 s, 130 m, 6 nodes, 5 edges explored=6
+  Path nodes: A -> C -> B -> D -> E -> F
+  route 2 A->D: 8.0 s, 80 m, 4 nodes, 3 edges explored=4
+  Path nodes: A -> C -> B -> D
+Edge B->D blocked after undo: NO (restored)
+
+--- Step 4: Traffic factor 3.0 on directed edge A->C ---
+Static path evaluated under traffic: 17.0 s (path A,C,B,D,E,F)
+Traffic-optimal A* path:   A->F optimal traffic A*: 14.0 s, 140 m, 5 nodes, 4 edges explored=6
+  Path nodes: A -> B -> D -> E -> F
+
+=== Demo complete ===

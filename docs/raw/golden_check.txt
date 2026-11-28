@@ -1,0 +1,6 @@
+=== Golden Predictions Check ===
+rows checked: 300
+max diff:     0.000000e+00
+golden MAE:   0.000000
+tolerance:    1.000000e-06
+status:       PASS

@@ -1,0 +1,3 @@
+gcc -std=c11 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror -g -Iinclude -I/usr/include/x86_64-linux-gnu -isystem /usr/include/mit-krb5 -isystem /usr/include/mit-krb5 -I/usr/include/p11-kit-1 -I/usr/include/cjson tools/transport_cli.c build/libtransport_core.a -lm -lcurl -lcjson -lpthread -o build/transport_cli
+0.50user 0.10system 0:00.71elapsed 83%CPU (0avgtext+0avgdata 51688maxresident)k
+0inputs+1256outputs (0major+16759minor)pagefaults 0swaps
