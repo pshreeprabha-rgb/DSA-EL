@@ -1,4 +1,5 @@
 import type { ApiErrorBody, ServerErrorCode } from './types';
+import { validateEndpointResponse } from './validators';
 
 export type ApiErrorCode = ServerErrorCode | 'network' | 'timeout' | 'bad_json';
 
@@ -109,6 +110,19 @@ async function requestJson<T>(
       );
     }
     throw new ApiError(res.status, 'internal', res.statusText || `HTTP ${res.status}`);
+  }
+
+  if (import.meta.env.DEV) {
+    const check = validateEndpointResponse(
+      path,
+      String(init.method || 'GET'),
+      parsed,
+    );
+    if (!check.ok) {
+      console.warn(
+        `[api] Contract mismatch on ${path} (${check.field}): ${check.reason}`,
+      );
+    }
   }
 
   return parsed as T;

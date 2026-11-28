@@ -301,7 +301,16 @@ export interface OptimizeResponse {
 export interface MlMetricsSummary {
   train_rows?: number;
   test_rows?: number;
+  train_days?: number;
+  test_days?: number;
+  trees?: number;
+  depth?: number;
+  leaf?: number;
   rf_mae?: number;
+  rf_mae_noisy?: number;
+  rf_rmse?: number;
+  rf_wape?: number;
+  rf_mae_lambda?: number;
   ma_mae?: number;
 }
 
@@ -363,6 +372,57 @@ export interface EvalScenarioSummary {
   policies: EvalPolicySummary[];
 }
 
+export interface EvalColdStartModel {
+  model: string;
+  mae_noisy: number;
+  rmse_noisy: number;
+  mae_lambda: number;
+}
+
+export interface EvalColdStartPaired {
+  n_days: number;
+  diff_mean_rf_minus_ma: number;
+  ci_lo: number;
+  ci_hi: number;
+  wins: number;
+  ties: number;
+  losses: number;
+}
+
+export interface EvalColdStartSummary {
+  train_rows: number;
+  holdout_stops: number;
+  seen_rows: number;
+  unseen_rows: number;
+  seen: EvalColdStartModel[];
+  unseen: EvalColdStartModel[];
+  paired_unseen_mae_lambda: EvalColdStartPaired;
+}
+
+export interface EvalAnomalyThreshold {
+  threshold: number;
+  false_alarms_mean: number;
+  false_alarms_sd: number;
+  detection_rate: number;
+  median_delay_min: number;
+  precision: number;
+}
+
+export interface EvalAnomalyValidation {
+  analytic_expected: number;
+  observed_mean: number;
+  standard_error: number;
+  pass: boolean;
+}
+
+export interface EvalAnomalySummary {
+  seeds: number;
+  base_seed: number;
+  event_stop: number;
+  thresholds: EvalAnomalyThreshold[];
+  analytic_validation: EvalAnomalyValidation;
+}
+
 /** GET /api/eval */
 export interface EvalResponse {
   config: {
@@ -375,6 +435,8 @@ export interface EvalResponse {
     reassign: string;
   };
   scenarios: EvalScenarioSummary[];
+  coldstart?: EvalColdStartSummary;
+  anomaly?: EvalAnomalySummary;
 }
 
 export interface SimControlRequest {

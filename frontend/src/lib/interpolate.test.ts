@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import type { BusState, GeometryResponse, StopInfo } from '../api/types';
 import {
+  blockedSegmentKey,
   busPosition,
   haversineMeters,
   legProgress,
   pointAlong,
+  segmentMidpoint,
   simNowS,
 } from './interpolate';
 
@@ -201,6 +203,17 @@ describe('interpolate helpers', () => {
     expect(deadMid).not.toBeNull();
     expect(deadMid![0]).toBeCloseTo(0, 6);
     expect(deadMid![1]).toBeCloseTo(1, 3);
+  });
+
+  it('computes segmentMidpoint and blockedSegmentKey for 30 m blocked edges', () => {
+    const seg = [
+      [12.94, 77.54],
+      [12.9402, 77.5404],
+    ] as const;
+    const mid = segmentMidpoint(seg);
+    expect(mid[0]).toBeCloseTo(12.9401, 6);
+    expect(mid[1]).toBeCloseTo(77.5402, 6);
+    expect(blockedSegmentKey(seg)).toBe('12.9400000,77.5400000|12.9402000,77.5404000');
   });
 });
 

@@ -1,12 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import {
+  boardDisplayOrder,
   busStateColor,
   ciLabel,
+  ciSignificance,
   clockHHMM,
   minutesLabel,
+  parseClockHHMM,
   ROUTE_PALETTE,
   routeColor,
+  stackTopFirst,
   stopTypeColor,
+  topQueuesByStop,
 } from './format';
 
 describe('format helpers', () => {
@@ -37,5 +42,58 @@ describe('format helpers', () => {
     expect(stopTypeColor('market')).not.toBe(stopTypeColor('residential'));
     expect(busStateColor('running')).not.toBe(busStateColor('broken'));
   });
-});
 
+  it('preserves server heap order in boardDisplayOrder', () => {
+    const serverBoard = [
+      { route_id: 3, priority: 21.1 },
+      { route_id: 1, priority: 20.8 },
+      { route_id: 2, priority: 15.3 },
+    ];
+    expect(boardDisplayOrder(serverBoard)).toEqual(serverBoard);
+  });
+
+  it('derives significance from paired CI bounds', () => {
+    expect(ciSignificance(-80.5, -32.2)).toBe('significant');
+    expect(ciSignificance(5.1, 14.9)).toBe('significant');
+    expect(ciSignificance(-47.5, 2.9)).toBe('inconclusive');
+    expect(ciSignificance(0, 0)).toBe('inconclusive');
+  });
+
+  it('sorts top queues descending capped at limit with stop names', () => {
+    const queues = Array.from({ length: 20 }, (_, i) => ({
+      stop: i,
+      waiting: i * 3,
+    }));
+    const stops = queues.map((q) => ({
+      idx: q.stop,
+      node: q.stop,
+      name: `S${q.stop}`,
+      type: 'market',
+      scale: 1,
+      lat: 12.9,
+      lng: 77.5,
+      route: 0,
+      pos: 0,
+      event_active: false,
+      first_flag_min: -1,
+    }));
+    const top = topQueuesByStop(queues, stops, 15);
+    expect(top).toHaveLength(15);
+    expect(top[0]).toEqual({ stop: 19, name: 'S19', waiting: 57 });
+    expect(top[14]).toEqual({ stop: 5, name: 'S5', waiting: 15 });
+  });
+
+  it('marks index 0 as stack top in stackTopFirst', () => {
+    expect(stackTopFirst(['newest', 'older'])).toEqual([
+      { text: 'newest', isTop: true },
+      { text: 'older', isTop: false },
+    ]);
+  });
+
+  it('parses valid HH:MM clock times and rejects malformed input', () => {
+    expect(parseClockHHMM('08:00')).toBe(480);
+    expect(parseClockHHMM('24:00')).toBe(1440);
+    expect(parseClockHHMM('25:00')).toBeNull();
+    expect(parseClockHHMM('08:99')).toBeNull();
+  });
+});

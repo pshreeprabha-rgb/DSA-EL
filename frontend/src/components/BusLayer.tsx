@@ -4,7 +4,7 @@ import { useMap } from 'react-leaflet';
 import type { BusState } from '../api/types';
 import { busStateColor } from '../lib/format';
 import { busPosition, simNowS } from '../lib/interpolate';
-import { useAppState } from '../state/AppState';
+import { useMapState } from '../state/AppState';
 
 const FRAME_MS = 100;
 
@@ -33,41 +33,30 @@ function busPopupHtml(bus: BusState): string {
 
 /**
  * Imperatively updates Leaflet bus markers every 100 ms using continuous
- * interpolation without putting per-frame coordinates into React state.
+ * interpolation without subscribing to 1 Hz state updates or putting coordinates in React state.
  */
 export function BusLayer() {
   const map = useMap();
-  const { state, fetchedAtMs, geometry, stops, config } = useAppState();
-
-  const latestRef = useRef({ state, fetchedAtMs, geometry, stops, config });
-
-  useEffect(() => {
-    latestRef.current = { state, fetchedAtMs, geometry, stops, config };
-  }, [state, fetchedAtMs, geometry, stops, config]);
+  const { getLatestTelemetry, subscribeTelemetry } = useMapState();
 
   const markersRef = useRef<Map<number, L.Marker>>(new Map());
   const metaRef = useRef<Map<number, string>>(new Map());
 
   useEffect(() => {
     const syncPositions = () => {
-      const {
-        state: curState,
-        fetchedAtMs: curFetchedAt,
-        geometry: curGeometry,
-        stops: curStops,
-        config: curConfig,
-      } = latestRef.current;
+      const { state, fetchedAtMs, geometry, stops, config } =
+        getLatestTelemetry();
 
-      if (!curState || curStops.length === 0) {
+      if (!state || stops.length === 0) {
         return;
       }
 
-      const endMin = curConfig?.end_min ?? 1320;
-      const nowS = simNowS(curState, curFetchedAt, Date.now(), endMin);
+      const endMin = config?.end_min ?? 1320;
+      const nowS = simNowS(state, fetchedAtMs, Date.now(), endMin);
       const activeIds = new Set<number>();
 
-      for (const bus of curState.buses) {
-        const pos = busPosition(bus, curGeometry, curStops, nowS);
+      for (const bus of state.buses) {
+        const pos = busPosition(bus, geometry, stops, nowS);
         if (!pos) {
           continue;
         }
@@ -107,12 +96,14 @@ export function BusLayer() {
     };
 
     syncPositions();
+    const unsub = subscribeTelemetry(syncPositions);
     const timer = globalThis.setInterval(syncPositions, FRAME_MS);
 
     return () => {
+      unsub();
       globalThis.clearInterval(timer);
     };
-  }, [map]);
+  }, [map, getLatestTelemetry, subscribeTelemetry]);
 
   useEffect(() => {
     const markers = markersRef.current;

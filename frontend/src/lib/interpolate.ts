@@ -112,6 +112,16 @@ function findStopCoords(stops: readonly StopInfo[], stopIdx: number): LatLng | n
   return match ? [match.lat, match.lng] : null;
 }
 
+/** Returns the exact [lat, lng] midpoint of a 2-point segment. */
+export function segmentMidpoint(seg: readonly [LatLng, LatLng]): [number, number] {
+  return [(seg[0][0] + seg[1][0]) / 2, (seg[0][1] + seg[1][1]) / 2];
+}
+
+/** Stable string key for deduplicating and comparing blocked road segments. */
+export function blockedSegmentKey(seg: readonly [LatLng, LatLng]): string {
+  return `${seg[0][0].toFixed(7)},${seg[0][1].toFixed(7)}|${seg[1][0].toFixed(7)},${seg[1][1].toFixed(7)}`;
+}
+
 /** Computes the current [lat, lng] position of a bus at simulated time nowS. */
 export function busPosition(
   bus: BusState,
