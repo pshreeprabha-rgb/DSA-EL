@@ -10,6 +10,8 @@ cleanup() {
 trap cleanup EXIT
 
 run_check() {
+    set -euo pipefail
+
     echo "[fresh-clone] Cloning $ROOT_DIR -> $CLONE_DIR"
     git clone "$ROOT_DIR" "$CLONE_DIR"
 
@@ -30,6 +32,10 @@ run_check() {
 
     echo "[fresh-clone] Running CLI command 3/3: traffic --offline"
     (cd "$CLONE_DIR/backend" && ./build/transport_cli traffic --offline)
+
+    echo "[fresh-clone] Generating demand datasets and evaluation outputs in clone"
+    (cd "$CLONE_DIR" && bash scripts/run_part3a_pipeline.sh)
+    make -C "$CLONE_DIR/backend" eval
 
     echo "[fresh-clone] Running golden-check"
     (cd "$CLONE_DIR/backend" && ./build/transport_cli golden-check --model ../data/demand_rf.txt --golden ../data/golden_predictions.csv)

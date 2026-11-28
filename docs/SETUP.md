@@ -10,12 +10,27 @@ sudo apt update && sudo apt install -y \
 ```
 Node.js **v20+** (verified on `v22.22.1`) and GCC (`-std=c11`) are required.
 
-## 2. Python ML Environment (`ml/`)
+## 2. First-Time Setup Order
+Run from the repository root in this order on a fresh checkout:
 ```bash
+# 1. Create Python ML environment and install dependencies
 python3 -m venv ~/venvs/transport
 ~/venvs/transport/bin/pip install -r ml/requirements.txt
+
+# 2. Generate demand data, train/export RF model, and run Part 3A verification
+# Note: this rewrites docs/part3a_results.txt (restore with: git checkout -- docs/part3a_results.txt)
+bash scripts/run_part3a_pipeline.sh
+
+# 3. Generate multi-seed, cold-start, and anomaly evaluation outputs
+make eval
+
+# 4. Install frontend dependencies
+cd frontend && npm ci && cd ..
+
+# 5. Verify backend C suites + frontend Vitest suite
+make check
 ```
-Dependencies (`ml/requirements.txt`): `numpy>=2.5.5`, `pandas>=3.1.1`, `scikit-learn>=1.9.1`.
+ML dependencies (`ml/requirements.txt`): `numpy>=2.5.5`, `pandas>=3.1.1`, `scikit-learn>=1.9.1`.
 
 ## 3. Environment Variables (`.env`)
 Copy `backend/.env.example` to `backend/.env`:

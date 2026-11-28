@@ -1,4 +1,4 @@
-# Smart Public Transport Fleet & Route Optimization System (Bengaluru BMTC)
+# Smart Public Transport Fleet & Route Optimization System
 
 A C11 simulation and optimization engine paired with a scikit-learn ML demand pipeline and a React + TypeScript + Leaflet operational dashboard for central Bengaluru bus transit.
 
@@ -7,9 +7,23 @@ A C11 simulation and optimization engine paired with a scikit-learn ML demand pi
 - **ML Pipeline (`ml/`)**: Python scikit-learn `RandomForestRegressor` training, deterministic export to `data/demand_rf.txt`, and golden parity predictions verified in C within `1e-6`.
 - **Interactive UI (`frontend/`)**: Vite + React 19 + TypeScript dashboard featuring a decoupled `React.memo` Leaflet live bus map (`100 ms` interpolation, fixed `"Road blocked"` markers), controls console, 24h demand/anomaly viewer, data-structure inspector, and multi-seed policy comparison page.
 
-## Quick Start
+## First-Time Setup & Quick Start
 ```bash
-# Run all backend + frontend unit checks
+# 1. Create Python ML venv and install dependencies
+python3 -m venv ~/venvs/transport
+~/venvs/transport/bin/pip install -r ml/requirements.txt
+
+# 2. Generate demand datasets, train/export RF model, and run Part 3A checks
+# Note: this rewrites docs/part3a_results.txt (restore with: git checkout -- docs/part3a_results.txt)
+bash scripts/run_part3a_pipeline.sh
+
+# 3. Generate multi-seed, cold-start, and anomaly evaluation summaries
+make eval
+
+# 4. Install frontend dependencies
+cd frontend && npm ci && cd ..
+
+# 5. Run all backend + frontend unit checks
 make check
 
 # Start backend HTTP server (offline simulated traffic, paused at 06:00, fixed seed)
@@ -17,7 +31,7 @@ make server
 backend/build/transport_server --port 8080 --data-dir data --seed 42 --paused --offline
 
 # In a second terminal, start the frontend UI on http://localhost:5173
-cd frontend && npm ci && npm run dev
+cd frontend && npm run dev
 ```
 
 Or run the frontend standalone with the animated mock server (`npm run mock` inside `frontend/`).
@@ -33,6 +47,6 @@ Or run the frontend standalone with the animated mock server (`npm run mock` ins
 ## Known Limitations
 - **Scope & simulation assumptions**: Evaluation runs on a single Bengaluru network (`60` stops, `6` routes, `36` buses) and on weekdays only (`DAY_WEEKDAY`). Arrivals, passenger behavior, and baseline diurnal traffic are simulated; live TomTom flow telemetry overlays only 8 mapped corridors when enabled.
 - **Rain-event anomaly-detector predictor**: In `rain-event` (evaluated with `3` reserve buses, whereas `normal` and `breakdown` use `0` reserve buses), `fixed_equal`, `fixed_proportional`, and `greedy_marginal_oracle` use the true demand model (`predictor = NULL`) for anomaly detection, `greedy_spec_ma` and `greedy_marginal_ma` use the moving average, and `greedy_marginal_rf` uses the random forest — confounding cross-policy comparisons in `rain-event`. Scenario means should not be compared across scenarios because reserve bus counts differ.
-- **Unexplained sensitivity plateau**: Sensitivity runs for `Hyst 0.10` and `0.25` at reallocation intervals `30` and `60` min produced identical results in both `normal` and `rain-event`, and that identical output is unexplained.
+- **Sensitivity plateau at high hysteresis**: In `normal`, hysteresis `0.10` and `0.25` applied zero moves over `30` seeds, so the reallocation interval (`30` vs `60` min) has no effect (moves were not counted in `rain-event`). The no-move mean (`773.62` s) was lower than the default (`788.12` s), not tested pairwise.
 - **In-flight HTTP shutdown**: Server shutdown during an active HTTP request handler was not shown to be tested.
 - **Live browser measurements**: Browser DevTools 60 s Performance main-thread busy-% and 5-minute console error checks count as verified only if supplied by a desktop browser run (no headless Chromium/Playwright binary was installed in WSL).

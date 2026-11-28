@@ -146,7 +146,10 @@ export function CompareView() {
             </thead>
             <tbody>
               {scenario.policies.map((p) => {
-                const verdict = ciSignificance(p.ci_lo, p.ci_hi);
+                const isBaseline = p.name === scenario.baseline;
+                const verdict = isBaseline
+                  ? 'baseline'
+                  : ciSignificance(p.ci_lo, p.ci_hi);
                 return (
                   <tr key={p.name}>
                     <td>{p.name}</td>

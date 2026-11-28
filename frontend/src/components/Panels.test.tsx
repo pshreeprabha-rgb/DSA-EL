@@ -420,6 +420,7 @@ describe('Dashboard, Demand, DsView, and CompareView', () => {
       'Demand and arrivals are simulated.',
     );
     const rows = within(screen.getByTestId('scenario-normal')).getAllByRole('row');
+    expect(rows[1]).toHaveTextContent('baseline');
     expect(rows[2]).toHaveTextContent('inconclusive');
     expect(rows[3]).toHaveTextContent('significant');
     expect(screen.getByTestId('coldstart-section')).toHaveTextContent('random_forest');

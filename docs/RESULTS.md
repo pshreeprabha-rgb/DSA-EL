@@ -123,7 +123,7 @@ Raw sources: `docs/raw/sensitivity.txt`, `docs/raw/eval_summary_normal.csv`, `do
 
 ### Sensitivity Sweeps (`greedy_marginal_ma` vs `fixed_equal`, `n=30`)
 
-Raw source: `docs/raw/sensitivity.txt`. Note that the rows for `Hyst 0.10` and `0.25` at intervals `30` and `60` min are identical within both `normal` and `rain-event` (unexplained; see Limitations).
+Raw source: `docs/raw/sensitivity.txt`. Note that in `normal`, hysteresis `0.10` and `0.25` applied zero moves over `30` seeds, so the reallocation interval (`30` vs `60` min) has no effect (moves were not counted in `rain-event`). The `normal` no-move mean (`773.62` s) was lower than the default (`788.12` s), not tested pairwise.
 
 | Scenario | Hysteresis (`Hyst`) | Interval (min) | Mean +- SD (s) | Diff [95% CI] (s) | W / T / L | Sig |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -175,7 +175,7 @@ At the default threshold `3`, the detector produces `17.233` false alarms per da
 - **Single network**: Simulation evaluation covers only one network configuration (`60` stops, `6` routes, `36` buses).
 - **Weekdays only**: Multi-seed simulation evaluation runs exclusively under weekday demand (`DAY_WEEKDAY`), omitting weekends and holidays.
 - **Scenarios differ in reserve buses**: The `rain-event` scenario includes `3` reserve buses whereas `normal` and `breakdown` have `0`, so wait-time means should not be compared across scenarios.
-- **Unexplained identical sensitivity outputs**: In the sensitivity sweeps (`greedy_marginal_ma` vs `fixed_equal`), `Hyst` `0.10` and `0.25` at intervals `30` and `60` min yield identical numbers in both `normal` and `rain-event`; the cause of these identical rows is unexplained.
+- **Sensitivity plateau at high hysteresis**: In `normal`, hysteresis `0.10` and `0.25` applied zero moves over `30` seeds, so the reallocation interval (`30` vs `60` min) has no effect (moves were not counted in `rain-event`). The `normal` no-move mean (`773.62` s) was lower than the default (`788.12` s), not tested pairwise.
 - **Rain-event anomaly-detector predictors**: In `rain-event`, `fixed_equal`, `fixed_proportional`, and `greedy_marginal_oracle` use the true demand model (`demand_expected`) for anomaly detection, whereas `greedy_spec_ma` and `greedy_marginal_ma` use the moving average and `greedy_marginal_rf` uses the random forest, confounding cross-policy comparisons in `rain-event`.
 - **Simulation assumptions**: Demand, passenger arrivals, dwell rules, and baseline diurnal traffic are simulated; live TomTom flow data (when not `--offline`) is an overlay on mapped corridors above a simulated simulation clock rather than real-world transit execution.
 - **In-flight HTTP shutdown**: Server shutdown behavior while an HTTP request is actively executing was not shown to be tested.

@@ -1,6 +1,7 @@
 # Build and test artifacts
 build/
 build_asan/
+backend/build_tsan/
 *.o
 *.a
 *.exe

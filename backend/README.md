@@ -239,15 +239,15 @@ All Part 1 data structures and Part 2/3 graph, pathfinding, network, simulation,
 The demand model simulates synthetic passenger arrivals at OpenStreetMap-sourced bus stops using an inhomogeneous Poisson process (`demand_model.c`, not real ridership data):
 $$\lambda(\text{stop}, t) = \text{base}(\text{type}) \times \text{scale} \times \text{profile}(\text{type}, \text{hour}) \times \text{daymult} \times \text{rain\_mult} \times \text{event\_mult}$$
 
-- **Stop Profiles & Base Rates**:
-  - `STOP_HUB` (Majestic, Shivajinagar): Base 40 pax/hr. Morning peak 1.8x, evening peak 2.2x, midday 1.2x.
-  - `STOP_OFFICE` (CBD, Whitefield, Electronics City): Base 35 pax/hr. Morning peak 2.5x, evening peak 2.2x, midday 0.8x.
-  - `STOP_MARKET` (KR Market, Commercial St): Base 30 pax/hr. Midday peak 1.8x, evening peak 2.0x, morning 0.9x.
-  - `STOP_RESIDENTIAL` (Jayanagar, Malleshwaram): Base 20 pax/hr. Morning outbound peak 2.2x, evening return peak 1.8x.
-- **Multipliers**:
+- **Stop Profiles & Base Rates** (`src/demand_model.c`):
+  - `STOP_HUB` (within `700` m of landmark centres Majestic and Shivajinagar): Base `60.0` pax/hr (`flr = 0.15`). Morning peak `0.85x` (`mu = 8.5, sigma = 1.4`), evening peak `0.90x` (`mu = 18.0, sigma = 1.6`), midday `0.35x` (`mu = 13.0, sigma = 3.0`).
+  - `STOP_OFFICE` (within `1500` m of landmark centres MG Road, Indiranagar, and Koramangala): Base `28.0` pax/hr (`flr = 0.05`). Morning peak `1.00x` (`mu = 9.0, sigma = 1.0`), evening peak `0.80x` (`mu = 18.5, sigma = 1.2`), midday `0.20x` (`mu = 13.0, sigma = 2.0`).
+  - `STOP_MARKET` (`u < 0.18` outside hub/office zones): Base `24.0` pax/hr (`flr = 0.05`). Morning `0.30x` (`mu = 9.5, sigma = 1.5`), evening peak `0.55x` (`mu = 17.5, sigma = 1.8`), midday peak `0.80x` (`mu = 12.5, sigma = 3.0`).
+  - `STOP_RESIDENTIAL` (remaining stops outside hub/office zones): Base `14.0` pax/hr (`flr = 0.05`). Morning peak `1.00x` (`mu = 8.0, sigma = 1.2`), evening peak `0.55x` (`mu = 19.0, sigma = 1.5`), midday `0.10x` (`mu = 13.0, sigma = 3.0`).
+- **Multipliers** (`src/demand_model.c`):
   - Rain: $+20\%$ surge ($\times 1.20$).
-  - Events (matches, concerts): $+150\%$ surge ($\times 2.50$) between 17:00 and 20:00 at 3 designated stops.
-  - Day Type: Weekday ($1.0\times$), Weekend ($0.7\times - 1.2\times$ depending on zone), Holiday ($0.5\times - 1.3\times$).
+  - Events (`event != 0`): $+150\%$ surge ($\times 2.50$) during hours `17..20` (`hour >= 17 && hour <= 20`) at up to `3` selected stops in `demand_generate`.
+  - Day Type: Weekday (`1.00x` all types); Weekend (`0.80x` hub, `0.30x` office, `1.25x` market, `0.70x` residential); Holiday (`0.70x` hub, `0.20x` office, `1.10x` market, `0.60x` residential).
 - **Poisson Sampling**:
   - For $\lambda < 30$: Exact Knuth exponential inter-arrival multiplication algorithm.
   - For $\lambda \ge 30$: Box-Muller Gaussian approximation with continuity correction: $P = \max(0, \text{round}(\lambda + \sqrt{\lambda} \cdot Z))$.
